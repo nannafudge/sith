@@ -1,0 +1,19 @@
+[package]
+name = "sith"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[features]
+
+[dependencies]
+quote = "1.0.33"
+proc-macro2 = "1.0.66"
+
+[dependencies.syn]
+version = "2.0.29"
+features = ["full", "printing", "parsing"]
+
+[lib]
+proc-macro = true
