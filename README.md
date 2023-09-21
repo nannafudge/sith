@@ -9,19 +9,19 @@ Minimal-dependency test harness framework via. simple (definitely unhygenic) AST
 
 ![](https://i.imgur.com/WaQV8df.gif)
 
-##Join the dark side - test like a Sith!
+## Join the dark side - test like a Sith!
 
 ***(Note - with great (or well, unlimited) power comes great responsibility)***
 
 ---
 
-###Note
+### Note
 
 **Sith was built specifically for another project of mine - features are added as I need currently. Feel free to drop by with [issues](https://github.com/nannafudge/sith/issues) and [feature requests](https://github.com/nannafudge/sith/labels/enhancement) if you like the concept or are finding this useful!**
 
 ---
 
-###Getting Started
+### Getting Started
 
 To begin weilding ultimate power, simply import `sith` like so:
 
@@ -30,11 +30,11 @@ use sith::test_case;
 use sith::test_suite;
 ```
 
-> **NOTE**: *Sith is very immature - therefore has no deployment on crates et al. If you'd like to try it out, feel free to fork - but be aware it's still a WIP and lacks testing some features*
+> **NOTE**: *Sith is very immature - therefore has no deployment on crates et al. If you'd like to try it out, feel free to clone - but be aware it's still a WIP and lacks testing some features*
 
 ---
 
-###Defining test cases with `#[test_case]`
+### Defining test cases with `#[test_case]`
 
 Unparameterized, `#[test_case]` behaves exactly as rust's built-in `#[test]`. Sith  supports both `#[test]` *and* `#[test_case]` - **feel free to use either.**
 
@@ -53,11 +53,11 @@ test simple_test ... ok
 test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 ```
 
-###Parameterized Tests with `#[test_case]`
+### Parameterized Tests with `#[test_case]`
 
 Sith also supports parameterization of `#[test_case]` via ***`arguments`***. Currently, the following arguments are provided:
 
-###`#[test_case(`**`name...`**`)]`:
+### `#[test_case(`**`name...`**`)]`:
 
 ***Appends **`name...`** to the test function definition***
 
@@ -68,6 +68,7 @@ fn simple_test() {
     println!("Hello, World!");
 }
 ```
+
 Outputs:
 
 ```
@@ -80,7 +81,7 @@ test simple_test_two ... ok
 test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 ```
 
-###`#[test_case(`**`with`**`(...))]`:
+### `#[test_case(`**`with`**`(...))]`:
 
 ***Positionally binds a test input to a value***
 
@@ -89,7 +90,7 @@ Using `with()`, one can pass in instantiated types on a test-by-test basis, allo
 - **`with(...)`** - Values unrecognized as sub-arguments (non-keywords) are by default interpreted as an instance of a `type` and passed in as such **(default)**
 - **`with(vertabim(...))`**  - Values within a `verbatim()` sub-argument are *uninterpreted*: Tokens within are output to the syntax tree **without parsing**. This allows passing in of **arbitrary input**, and thus, arbitrary parameterization of tests
 
-####Simple value-binding [`with(...)`]
+#### Simple value-binding [`with(...)`]
 
 ```rust
 #[test_case(one, with("one!"))]
@@ -145,7 +146,6 @@ error[E0308]: mismatched types
              found reference `&'static str`
 ```
 
-
 ##### Ducking Types
 
 Binding is *type-sensitive* - that is, the annotated type on the corresponding test function arg **must** match that of the value in `with()`:
@@ -192,7 +192,7 @@ test simple_test_that_i_fixed ... ok
 test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 ```
 
-####Arbitrary value-binding [`with(vertabim(...))`]
+#### Arbitrary value-binding [`with(vertabim(...))`]
 
 Using `vertabim()`, one may (truly) harness **unlimited power**:
 
@@ -216,7 +216,7 @@ test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 
 ---
 
-###Defining test suites with `#[test_suite]`
+### Defining test suites with `#[test_suite]`
 
 As is traditional - `#[test_suite]` describes a collection of tests that're common with one another. Additional to grouping, `#[test_suite]` allows one to define _**common** setup and **teardown**_ routines, ran before and after each test respectively.
 
@@ -246,7 +246,7 @@ test my_suite::simple_test ... ok
 test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 ```
 
-###`#[setup]`:
+### `#[setup]`:
 
 ***Executes contained code `before` every test***
 
@@ -280,7 +280,7 @@ test my_suite::simple_test ... ok
 test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 ```
 
-###`#[teardown]`:
+### `#[teardown]`:
 
 ***Executes contained code `after` every test***
 
@@ -316,7 +316,7 @@ test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 
 ---
 
-####But ***why?***
+#### But ***why?***
 
 Well, doing so allows testing different interfaces that utilize the same underlying logic. For example, given a set of binary tree implementations:
 
@@ -357,7 +357,7 @@ fn insert_order(btree: _, arg_gen: _) {
 
 Unfortunately, this only allows us to test the underlying implementation and not the higher-level interface. If we wanted to test the latter, we'd either have to copy-paste the logic (no bueno), or use declerative macros via. `macro_rules`. Unfortunately, the latter becomes rather unweildy for complex tests or large suites - which is where Sith comes in to play.
 
-####Isn't this insecure, or a potential attack vector?
+#### Isn't this insecure, or a potential attack vector?
 
 **Yes!**. Or well, most likely so. Generally, most Procedural Macros admit this pitfall. But that is what it means to harness the power of the dark side...
 
