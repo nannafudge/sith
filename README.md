@@ -11,7 +11,7 @@ Minimal-dependency test harness framework via. simple (definitely unhygenic) AST
 
 ## Join the dark side - test like a Sith!
 
-***(Note - with great (or well, unlimited) power comes great responsibility)***
+***With great (or well, unlimited) power comes great responsibility***
 
 ---
 
