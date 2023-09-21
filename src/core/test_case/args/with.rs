@@ -10,16 +10,19 @@ use crate::common::{
     macros::error_spanned
 };
 use proc_macro2::{
-    TokenStream, TokenTree, Literal
+    TokenStream, TokenTree, Literal, Group
 };
 use syn::{
-    Ident, Expr, Token,
+    Ident, Expr, ItemFn, Token,
     FnArg, Result, Stmt, Type, Pat,
     parse::{
         Parse, ParseStream
     },
+    buffer::{
+        TokenBuffer, Cursor
+    },
     token::Comma,
-    punctuated::Pair, ItemFn
+    punctuated::Pair
 };
 
 use quote::ToTokens;
@@ -29,10 +32,6 @@ struct WithVerbatim(TokenStream);
 
 impl Parse for WithVerbatim {
     fn parse(input: ParseStream) -> Result<Self> {
-        if input.parse::<Ident>()?.to_string().as_bytes() != b"verbatim" {
-            return Err(input.error("INVARIANT!: WithVerbatim: invalid arg identity"));
-        }
-
         Ok(Self(parse_arg_parameterized::<TokenStream>(input)?))
     }
 }
@@ -44,13 +43,14 @@ impl Mutate for WithVerbatim {
         match parse_fn_arg(target.sig.inputs.pop().as_ref())? {
             (ident, Type::Infer(_)) => {
                 for stmt in &mut target.block.stmts {
-                    // This could be optimized
-                    let tokens = stmt.to_token_stream().to_string();
-                    let new_stmt = syn::parse_str::<Stmt>(
-                        &tokens.replace(&ident.to_string(), &self.0.to_string())
-                    )?;
-
-                    *stmt = new_stmt;
+                    // Unsure if this is faster than string.replace()
+                    // TODO: Benchmark
+                    let tokens = recursive_descent_replace(
+                        &mut TokenBuffer::new2(stmt.to_token_stream()).begin(),
+                        ident,
+                        &self.0
+                    );
+                    *stmt = syn::parse2::<Stmt>(tokens)?;
                 }
 
                 Ok(())
@@ -108,9 +108,10 @@ impl Parse for WithExpr {
         // It would be more efficient to use step() directly here - but would
         // also be messy, add more bloat to codebase, and (likely) the performance
         // hit from doing it like this isn't large regardless
-        if let TokenTree::Ident(name) = peek_next_tt(input)? {
+        if let (TokenTree::Ident(name), next) = peek_next_tt(input.cursor())? {
             match name.to_string().as_bytes() {
                 b"verbatim" => {
+                    *(&mut input.cursor()) = next;
                     return Ok(WithExpr::Verbatim(input.parse::<WithVerbatim>()?));
                 },
                 _ => {}
@@ -180,6 +181,33 @@ impl Mutate for ArgWith {
 
 impl_unique_arg!(ArgWith);
 impl_to_tokens_wrapped!(ArgWith: collection);
+
+fn recursive_descent_replace<'a>(input: &mut Cursor<'a>, pattern: &Ident, substitute: &TokenStream) -> TokenStream {
+    let mut out = TokenStream::new();
+    while let Some((tt, next)) = input.token_tree() {
+        match tt {
+            TokenTree::Group(item) => {
+                let (mut start, _, _) = input.group(item.delimiter())
+                    .expect("Invariant: Expected group contents");
+
+                Group::new(
+                    item.delimiter(),
+                    recursive_descent_replace(&mut start, pattern, substitute)
+                ).to_tokens(&mut out);
+            },
+            TokenTree::Ident(item) if item.eq(pattern) => {
+                substitute.to_tokens(&mut out);
+            },
+            _ => {
+                tt.to_tokens(&mut out);
+            }
+        }
+
+        *input = next;
+    }
+
+    out
+}
 
 fn parse_fn_arg<'c>(arg: Option<&'c Pair<FnArg, Comma>>) -> Result<(&'c Ident, &'c Type)> {
     match arg {

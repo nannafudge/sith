@@ -6,7 +6,7 @@ use super::{
 };
 use syn::{
     Result, Ident,
-    Item, ItemFn,
+    ItemMod, Item, ItemFn,
     parse::{
         Parse, ParseStream
     }, 
@@ -79,7 +79,7 @@ impl Mutate for TestSuite {
 
 impl Parse for TestSuite {
     fn parse(input: ParseStream) -> Result<Self> {
-        let target: syn::ItemMod = input.parse::<syn::ItemMod>()?;
+        let target: ItemMod = input.parse::<ItemMod>()?;
         if target.content.is_none() {
             return Ok(Self{
                 name: target.ident,

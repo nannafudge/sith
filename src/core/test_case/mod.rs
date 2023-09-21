@@ -4,7 +4,8 @@ use super::{
     macros::*
 };
 use crate::common::{
-    peek_next_tt, parse_group_with_delim,
+    parse_next_tt,
+    parse_group_with_delim, 
     attribute_name_to_bytes,
     macros::{
         error_spanned,
@@ -59,11 +60,11 @@ impl ToTokens for TestMutator {
 
 impl Parse for TestMutator {
     fn parse(input: ParseStream) -> Result<Self> {
-        let name = input.parse::<Ident>().map_err(|_| {
-            // If we've gotten to this point, next el should never be empty,
-            // as TestCase.parse() iterates while !input.empty()
-            let next = peek_next_tt(input).unwrap();
-            input.error(format!("{}\n ^ unexpected argument", next))
+        let name: Ident = input.parse::<Ident>().map_err(|_| {
+            match parse_next_tt(&mut input.cursor()) {
+                Ok(token) => input.error(format!("{}\n ^ unexpected arg", token)),
+                Err(e) => e
+            }
         })?;
 
         match name.to_string().as_bytes() {
