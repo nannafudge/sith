@@ -105,20 +105,25 @@ enum WithExpr {
 
 impl Parse for WithExpr {
     fn parse(input: ParseStream) -> Result<Self> {
-        // It would be more efficient to use step() directly here - but would
-        // also be messy, add more bloat to codebase, and (likely) the performance
-        // hit from doing it like this isn't large regardless
-        if let (TokenTree::Ident(name), next) = peek_next_tt(input.cursor())? {
-            match name.to_string().as_bytes() {
+        if let TokenTree::Ident(name) = peek_next_tt(input)? {
+            let with_expr_parser = match name.to_string().as_bytes() {
                 b"verbatim" => {
-                    *(&mut input.cursor()) = next;
-                    return Ok(WithExpr::Verbatim(input.parse::<WithVerbatim>()?));
+                    Some(WithVerbatim::parse)
                 },
-                _ => {}
-            }
-        }
+                _ => None
+            };
 
-        Ok(WithExpr::Assignment(input.parse::<WithAssignment>()?))
+            if let Some(parser) = with_expr_parser {
+                // Pluck the function ident from the input stream
+                // before handing off to the parser function
+                let _ = input.parse::<Ident>();
+                return Ok(
+                    WithExpr::from(input.call(parser)?)
+                );
+            }
+        };
+
+        return Ok(WithExpr::Assignment(input.parse::<WithAssignment>()?));
     }
 }
 
@@ -142,13 +147,26 @@ impl Mutate for WithExpr {
     }
 }
 
+impl From<WithVerbatim> for WithExpr {
+    fn from(value: WithVerbatim) -> Self {
+        WithExpr::Verbatim(value)
+    }
+}
+
+impl From<WithAssignment> for WithExpr {
+    fn from(value: WithAssignment) -> Self {
+        WithExpr::Assignment(value)
+    }
+}
+
 #[derive(Clone)]
 pub(crate) struct ArgWith(Vec<WithExpr>);
 
 impl Parse for ArgWith {
     fn parse(input: ParseStream) -> Result<Self> {
-        let items: Vec<WithExpr> = greedy_parse_with_delim::<WithExpr, Token![,]>(input)?;
-        Ok(Self(items))
+        Ok(Self(
+            greedy_parse_with_delim::<WithExpr, Token![,]>(input)?
+        ))
     }
 }
 

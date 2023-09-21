@@ -94,31 +94,17 @@ mod macros {
     }
 
     macro_rules! impl_to_tokens_wrapped {
-        ($target:ty: collection) => {
-            impl quote::ToTokens for $target {
-                fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-                    self.0.iter().for_each(| item | item.to_tokens(tokens));
-                }
-            }
-        };
-        ($target:ty: collection, $field:expr) => {
-            impl quote::ToTokens for $target {
-                fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-                    self.$field $(. $subfields)?.iter().for_each(| item | item.to_tokens(tokens));
-                }
-            }
-        };
-        ($target:ty, $field:expr) => {
-            impl quote::ToTokens for $target {
-                fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-                    self.$field $(. $subfields)?.to_tokens(tokens);
-                }
-            }
-        };
         ($target:ty) => {
             impl quote::ToTokens for $target {
                 fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
                     self.0.to_tokens(tokens);
+                }
+            }
+        };
+        ($target:ty: collection) => {
+            impl quote::ToTokens for $target {
+                fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+                    self.0.iter().for_each(| item | item.to_tokens(tokens));
                 }
             }
         };

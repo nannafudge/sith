@@ -6,7 +6,7 @@ use syn::{
     Attribute, Result,
     parse::{
         ParseStream, Parse
-    }, buffer::Cursor
+    }
 };
 
 use macros::error_spanned;
@@ -16,7 +16,7 @@ pub fn attribute_name_to_bytes<'c>(attr: &Attribute) -> Option<&'c [u8]> {
     segments.last().map(| segment | steal(segment.ident.to_string().as_bytes()))
 }
 
-pub fn parse_group_with_delim<'c>(delim: Delimiter, input: ParseStream<'c>) -> Result<TokenStream> {
+pub fn parse_group_with_delim(delim: Delimiter, input: ParseStream) -> Result<TokenStream> {
     input.step(| cursor | {
         if let Some((content, _, next)) = cursor.group(delim) {
             return Ok((content.token_stream(), next));
@@ -41,17 +41,22 @@ pub fn greedy_parse_with_delim<T, D>(input: ParseStream) -> Result<Vec<T>> where
     Ok(out)
 }
 
-pub fn peek_next_tt<'a>(cursor: Cursor<'a>) -> Result<(TokenTree, Cursor<'a>)> {
-    cursor.token_tree().ok_or(error_spanned!("{} ^ expected token", &cursor.token_stream()))
-}
-
-pub fn parse_next_tt<'a>(cursor: &mut Cursor<'a>) -> Result<TokenTree> {
-    if let Some((tt, next)) = cursor.token_tree() {
-        *cursor = next;
+pub fn peek_next_tt(input: ParseStream) -> Result<TokenTree> {
+    if let Some((tt, _)) = input.cursor().token_tree() {
         return Ok(tt);
     }
 
-    Err(error_spanned!("{} ^ expected token", &cursor.token_stream()))
+    Err(error_spanned!("{} ^ expected token", &input.cursor().token_stream()))
+}
+
+pub fn parse_next_tt(input: ParseStream) -> Result<TokenTree> {
+    input.step(| cursor | {
+        if let Some((tt, next)) = cursor.token_tree() {
+            return Ok((tt, next));
+        }
+
+        Err(error_spanned!("{} ^ expected token", &cursor.token_stream()))
+    })
 }
 
 #[inline]

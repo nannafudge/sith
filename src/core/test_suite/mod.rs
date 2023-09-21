@@ -5,6 +5,7 @@ use super::{
     macros::*
 };
 use syn::{
+    Attribute,
     Result, Ident,
     ItemMod, Item, ItemFn,
     parse::{
@@ -14,8 +15,10 @@ use syn::{
         Mod, Brace
     }
 };
+
 use quote::{ToTokens, TokenStreamExt};
 use proc_macro2::TokenStream;
+use core::mem::take;
 
 mod args;
 use args::*;
@@ -48,28 +51,50 @@ impl ToTokens for SuiteMutator {
     }
 }
 
+impl SuiteMutator {
+    fn new_from(function: &mut ItemFn) -> Option<SuiteMutator> {
+        for attribute in &function.attrs {
+            match attribute_name_to_bytes(attribute) {
+                Some(b"setup") => {
+                    return Some(
+                        SuiteMutator::Setup(ArgSetup(take(&mut function.block.stmts)))
+                    );
+                },
+                Some(b"teardown") => {
+                    return Some(
+                        SuiteMutator::Teardown(ArgTeardown(take(&mut function.block.stmts)))
+                    );
+                },
+                _ => {}
+            }
+        }
+
+        None
+    }
+}
+
 #[derive(Clone)]
 pub struct TestSuite {
     name: Ident,
-    mutators: Mutators<SuiteMutator>,
-    contents: Vec<Item>
+    mutators: Option<Mutators<SuiteMutator>>,
+    contents: Option<Vec<Item>>
 }
 
 impl Mutate for TestSuite {
     type Item = Item;
 
     fn mutate(&self, target: &mut Self::Item) -> Result<()> {
-        if let Item::Fn(function) = target {
-            let is_test = function.attrs.iter()
-                .filter_map(attribute_name_to_bytes)
-                .any(| attr | {
-                    attr == b"test" || attr == b"test_case"
-                });
+        let Option::Some(mutators) = &self.mutators else {
+            return Ok(());
+        };
 
-            if is_test {
-                for mutator in &self.mutators {
-                    mutator.mutate(function)?;
-                }
+        let Item::Fn(function) = target else {
+            return Ok(());
+        };
+
+        if is_test_attribute(&function.attrs) {
+            for mutator in mutators {
+                mutator.mutate(function)?;
             }
         }
 
@@ -79,71 +104,57 @@ impl Mutate for TestSuite {
 
 impl Parse for TestSuite {
     fn parse(input: ParseStream) -> Result<Self> {
-        let target: ItemMod = input.parse::<ItemMod>()?;
-        if target.content.is_none() {
-            return Ok(Self{
-                name: target.ident,
-                mutators: Mutators::new(),
-                contents: Vec::new()
-            });
-        }
+        let mut target: ItemMod = input.parse::<ItemMod>()?;
+        let Some(mut contents) = take(&mut target.content) else {
+            return Ok( Self { name: target.ident, mutators: None, contents: None } );
+        };
 
         let mut mutators: Mutators<SuiteMutator> = Mutators::new();
-        let mut contents: Vec<Item> = Vec::with_capacity(1);
 
         // TODO: Make suites composable using 'use', where setup/teardown
         // functions are combined into one as an inheritable strategy
         // TODO: Detect #[setup]/#[teardown] on invalid Items, reporting such correctly
-        for item in target.content.expect("Invariant: Empty suite").1 {
-            // We need to clone the stmts regardless, to support
-            // functions that are tagged as both setup and teardown
-            let mut is_suite_arg: bool = false;
-            if let Item::Fn(item) = &item {
-                let mut attributes = item.attrs.iter().filter_map(attribute_name_to_bytes);
-                while let Some(name) = attributes.next() {
-                    match name {
-                        b"setup" => {
-                            mutators.insert_unique(
-                                SuiteMutator::Setup(
-                                    ArgSetup(item.block.stmts.to_owned())
-                                )
-                            )?;
+        let mut removed_elements: usize = 0;
+        for i in 0..contents.1.len() {
+            let Item::Fn(item) = &mut contents.1[i - removed_elements] else {
+                continue;
+            };
 
-                            is_suite_arg = true;
-                        },
-                        b"teardown" => {
-                            mutators.insert_unique(
-                                SuiteMutator::Teardown(
-                                    ArgTeardown(item.block.stmts.to_owned())
-                                )
-                            )?;
-
-                            is_suite_arg = true;
-                        },
-                        _ => {}
-                    }
-                }
-            }
-
-            if !is_suite_arg {
-                contents.push(item);
+            if let Some(mutator) = SuiteMutator::new_from(item) {
+                mutators.insert_unique(mutator)?;
+                contents.1.remove(i - removed_elements);
+                removed_elements += 1;
             }
         }
 
         Ok(Self {
             name: target.ident,
-            mutators,
-            contents
+            mutators: Some(mutators),
+            contents: Some(contents.1)
         })
     }
 }
 
-pub fn render_test_suite(mut test_suite: TestSuite) -> TokenStream {
-    let mut suite_out: TokenStream = TokenStream::new();
-    let mut contents = core::mem::take(&mut test_suite.contents);
+impl ToTokens for TestSuite {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        render_mod_name(&self, tokens);
 
-    Mod::default().to_tokens(&mut suite_out);
-    test_suite.name.to_tokens(&mut suite_out);
+        let braced: Brace = Brace::default();
+        braced.surround(tokens, | suite_inner |{
+            if let Some(contents) = &self.contents {
+                contents.iter().for_each(| item | item.to_tokens(suite_inner));
+            }
+        });
+    }
+}
+
+pub fn render_test_suite(mut test_suite: TestSuite) -> TokenStream {
+    let Option::Some(mut contents) = take(&mut test_suite.contents) else {
+        return test_suite.to_token_stream();
+    };
+
+    let mut suite_out: TokenStream = TokenStream::new();
+    render_mod_name(&test_suite, &mut suite_out);
     
     let braced: Brace = Brace::default();
     braced.surround(&mut suite_out, | suite_inner |{
@@ -151,10 +162,21 @@ pub fn render_test_suite(mut test_suite: TestSuite) -> TokenStream {
             if let Err(e) = test_suite.mutate(item) {
                 suite_inner.append_all(e.to_compile_error());
             }
-    
+
             item.to_tokens(suite_inner);
         }
     });
 
-    suite_out
+    suite_out.into()
+}
+
+fn render_mod_name(test_suite: &TestSuite, tokens: &mut TokenStream) {
+    Mod::default().to_tokens(tokens);
+    test_suite.name.to_tokens(tokens);
+}
+
+fn is_test_attribute(attributes: &[Attribute]) -> bool {
+    attributes.iter()
+        .filter_map(attribute_name_to_bytes)
+        .any(| attr | attr == b"test" || attr == b"test_case")
 }

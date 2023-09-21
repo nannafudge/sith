@@ -61,7 +61,7 @@ impl ToTokens for TestMutator {
 impl Parse for TestMutator {
     fn parse(input: ParseStream) -> Result<Self> {
         let name: Ident = input.parse::<Ident>().map_err(|_| {
-            match parse_next_tt(&mut input.cursor()) {
+            match parse_next_tt(input) {
                 Ok(token) => input.error(format!("{}\n ^ unexpected arg", token)),
                 Err(e) => e
             }
@@ -125,20 +125,22 @@ pub fn render_test_case(test_case_: TestCase, mut target: ItemFn) -> TokenStream
     // Search for other test case attributes, plucking such from the fn def if present
     let mut removed_elements: usize = 0;
     for i in 0..target.attrs.len() {
-        if attribute_name_to_bytes(&target.attrs[i - removed_elements]) == Some(b"test_case") {
-            let attr = target.attrs.remove(i - removed_elements);
-            let parsed_test_case = unwrap_or_err!(
-                attr.parse_args_with(TestCase::parse),
-                error_spanned!("{}", &attr)
-            );
-
-            test_cases.push(parsed_test_case);
-
-            // Upon removal, the vec shifts one to
-            // the left (and thus - so does the length)
-            // So we must adjust index `i` accordingly
-            removed_elements += 1;
+        if attribute_name_to_bytes(&target.attrs[i - removed_elements]) != Some(b"test_case") {
+            continue;
         }
+
+        let attr = target.attrs.remove(i - removed_elements);
+        let parsed_test_case = unwrap_or_err!(
+            attr.parse_args_with(TestCase::parse),
+            error_spanned!("{}", &attr)
+        );
+
+        test_cases.push(parsed_test_case);
+
+        // Upon removal, the vec shifts one to
+        // the left (and thus - so does the length)
+        // So we must adjust index `i` accordingly
+        removed_elements += 1;
     }
 
     // For each test case matched, evaluate each against a fresh instance of the function
