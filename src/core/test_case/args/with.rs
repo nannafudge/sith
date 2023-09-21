@@ -99,6 +99,7 @@ impl_to_tokens_wrapped!(WithAssignment);
 
 #[derive(Clone)]
 enum WithExpr {
+    // Mutators should be defined in the order they must apply
     Assignment(WithAssignment),
     Verbatim(WithVerbatim)
 }

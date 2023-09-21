@@ -78,14 +78,11 @@ pub(crate) mod macros {
 
     macro_rules! unwrap_or_err {
         ($target:expr, $($error:tt)+) => {
-            match $target {
-                Ok(t) => t,
-                Err(e) => {
-                    let mut out = $($error)+;
-                    out.combine(e);
-
-                    return out.to_compile_error();
-                }
+            if let Err(e) = $target {
+                $($error)+.combine(e);
+                return $($error)+.to_compile_error();
+            } else {
+                $target.unwrap()
             }
         };
     }

@@ -114,6 +114,7 @@ impl Parse for TestSuite {
         // TODO: Make suites composable using 'use', where setup/teardown
         // functions are combined into one as an inheritable strategy
         // TODO: Detect #[setup]/#[teardown] on invalid Items, reporting such correctly
+        // TODO: Create 'safe remove' iterator type
         let mut removed_elements: usize = 0;
         for i in 0..contents.1.len() {
             let Item::Fn(item) = &mut contents.1[i - removed_elements] else {
@@ -153,6 +154,9 @@ pub fn render_test_suite(mut test_suite: TestSuite) -> TokenStream {
         return test_suite.to_token_stream();
     };
 
+    // DRY - however... ToTokens doesn't pass-in self as an owned or mutable reference,
+    // so mutation must occur outside. It's more optimized to mutate and apply items
+    // within the same loop
     let mut suite_out: TokenStream = TokenStream::new();
     render_mod_name(&test_suite, &mut suite_out);
     

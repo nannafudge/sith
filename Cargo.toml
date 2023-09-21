@@ -13,7 +13,8 @@ proc-macro2 = "1.0.66"
 
 [dependencies.syn]
 version = "2.0.29"
-features = ["full", "printing", "parsing"]
+default-features = false
+features = ["full", "parsing", "printing", "clone-impls"]
 
 [lib]
 proc-macro = true
