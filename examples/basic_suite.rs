@@ -27,7 +27,7 @@ mod other_suite {
     struct TestStruct(usize);
 
     // Imaginary seed value...
-    const SEED: usize = 232523323;
+    const SEED: usize = 23233523323;
 
     // Feel free to move these to another module
     fn setup_error_handler() {

@@ -4,25 +4,21 @@ use super::{
     impl_to_tokens_wrapped
 };
 use syn::{
-    Item, Stmt, Result
+    Stmt, Block, Result
 };
-
-use crate::common::macros::error_spanned;
 
 #[derive(Clone)]
 pub struct ArgSetup(pub Vec<Stmt>);
 
 impl Mutate for ArgSetup {
-    fn mutate(&self, target: &mut Item) -> Result<()> {
-        if let Item::Fn(function) = target {
-            for stmt in self.0.iter().rev() {
-                function.block.stmts.insert(0, stmt.clone());
-            }
+    type Item = Block;
 
-            return Ok(());
+    fn mutate(&self, target: &mut Self::Item) -> Result<()> {
+        for stmt in self.0.iter().rev() {
+            target.stmts.insert(0, stmt.clone());
         }
 
-        Err(error_spanned!("{}\n ^ not a function", target))
+        return Ok(());
     }
 }
 
@@ -33,14 +29,12 @@ impl_to_tokens_wrapped!(ArgSetup: collection);
 pub struct ArgTeardown(pub Vec<Stmt>);
 
 impl Mutate for ArgTeardown {
-    fn mutate(&self, target: &mut Item) -> Result<()> {
-        if let Item::Fn(function) = target {
-            function.block.stmts.extend(self.0.clone());
+    type Item = Block;
 
-            return Ok(());
-        }
+    fn mutate(&self, target: &mut Self::Item) -> Result<()> {
+        target.stmts.extend(self.0.clone());
 
-        Err(error_spanned!("{}\n ^ not a function", target))
+        return Ok(());
     }
 }
 

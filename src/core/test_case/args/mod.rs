@@ -4,14 +4,14 @@ use super::{
     impl_to_tokens_wrapped
 };
 use syn::{
-    Ident, Item, Result,
+    Result,
+    Ident, Signature,
     parse::{
         Parse, ParseStream
     }
 };
 
 use quote::format_ident;
-use crate::common::macros::error_spanned;
 
 mod with;
 pub(crate) use with::*;
@@ -26,14 +26,12 @@ impl Parse for ArgName {
 }
 
 impl Mutate for ArgName {
-    fn mutate(&self, target: &mut Item) -> Result<()> {
-        if let Item::Fn(function) = target {
-            function.sig.ident = format_ident!("{}_{}", function.sig.ident, self.0);
+    type Item = Signature;
 
-            return Ok(());
-        }
-        
-        Err(error_spanned!("{}\n ^ not a function", target))
+    fn mutate(&self, target: &mut Self::Item) -> Result<()> {
+        target.ident = format_ident!("{}_{}", target.ident, self.0);
+
+        return Ok(());
     }
 }
 

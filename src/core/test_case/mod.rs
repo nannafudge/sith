@@ -4,7 +4,7 @@ use super::{
     macros::*
 };
 use crate::common::{
-    peek_next_tt, parse_delim,
+    peek_next_tt, parse_group_with_delim,
     attribute_name_to_bytes,
     macros::{
         error_spanned,
@@ -16,8 +16,8 @@ use proc_macro2::{
     Delimiter
 };
 use syn::{
-    Ident, Item, ItemFn, Token,
-    Result, Attribute, AttrStyle,
+    Attribute, AttrStyle,
+    Ident, ItemFn, Token, Result,
     parse::{
         Parse, ParseStream
     },
@@ -38,10 +38,12 @@ enum TestMutator {
 }
 
 impl Mutate for TestMutator {
-    fn mutate(&self, target: &mut Item) -> Result<()> {
+    type Item = ItemFn;
+
+    fn mutate(&self, target: &mut Self::Item) -> Result<()> {
         match self {
             TestMutator::ArgWith(arg) => arg.mutate(target),
-            TestMutator::ArgName(arg) => arg.mutate(target)
+            TestMutator::ArgName(arg) => arg.mutate(&mut target.sig)
         }
     }
 }
@@ -80,7 +82,9 @@ impl Parse for TestMutator {
 pub struct TestCase(Mutators<TestMutator>);
 
 impl Mutate for TestCase {
-    fn mutate(&self, target: &mut Item) -> Result<()> {
+    type Item = ItemFn;
+
+    fn mutate(&self, target: &mut Self::Item) -> Result<()> {
         for mutator in &self.0 {
             mutator.mutate(target)?;
         }
@@ -109,7 +113,7 @@ impl Parse for TestCase {
 impl_to_tokens_wrapped!(TestCase: collection);
 
 fn parse_arg_parameterized<T: Parse>(input: ParseStream) -> Result<T> {
-    let arg_inner: TokenStream = parse_delim(Delimiter::Parenthesis, input)?;
+    let arg_inner: TokenStream = parse_group_with_delim(Delimiter::Parenthesis, input)?;
     syn::parse2::<T>(arg_inner)
 }
 
@@ -136,12 +140,10 @@ pub fn render_test_case(test_case_: TestCase, mut target: ItemFn) -> TokenStream
         }
     }
 
+    // For each test case matched, evaluate each against a fresh instance of the function
     for test_case in test_cases {
-        let mut target_fn: Item = {
-            let mut local_fn: ItemFn = target.clone();
-            local_fn.attrs.push(rustc_test_attribute!(target.span()));
-            Item::Fn(local_fn)
-        };
+        let mut target_fn: ItemFn = target.clone();
+        target_fn.attrs.push(rustc_test_attribute!(target.span()));
 
         match test_case.mutate(&mut target_fn) {
             Ok(()) => target_fn.to_tokens(&mut out),

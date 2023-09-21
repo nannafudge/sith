@@ -1,22 +1,21 @@
+use crate::common::attribute_name_to_bytes;
 use super::{
     InsertUnique,
     Mutate, Mutators,
     macros::*
 };
 use syn::{
-    Result,
-    Item, Ident,
-    token::{
-        Brace, Mod
-    },
+    Result, Ident,
+    Item, ItemFn,
     parse::{
         Parse, ParseStream
+    }, 
+    token::{
+        Mod, Brace
     }
 };
-
-use crate::common::attribute_name_to_bytes;
+use quote::{ToTokens, TokenStreamExt};
 use proc_macro2::TokenStream;
-use quote::ToTokens;
 
 mod args;
 use args::*;
@@ -30,10 +29,12 @@ enum SuiteMutator {
 }
 
 impl Mutate for SuiteMutator {
-    fn mutate(&self, target: &mut Item) -> Result<()> {
+    type Item = ItemFn;
+
+    fn mutate(&self, target: &mut Self::Item) -> Result<()> {
         match self {
-            SuiteMutator::Setup(arg) => arg.mutate(target),
-            SuiteMutator::Teardown(arg) => arg.mutate(target)
+            SuiteMutator::Setup(arg) => arg.mutate(&mut target.block),
+            SuiteMutator::Teardown(arg) => arg.mutate(&mut target.block)
         }
     }
 }
@@ -55,9 +56,21 @@ pub struct TestSuite {
 }
 
 impl Mutate for TestSuite {
-    fn mutate(&self, target: &mut Item) -> Result<()> {
-        for mutator in &self.mutators {
-            mutator.mutate(target)?;
+    type Item = Item;
+
+    fn mutate(&self, target: &mut Self::Item) -> Result<()> {
+        if let Item::Fn(function) = target {
+            let is_test = function.attrs.iter()
+                .filter_map(attribute_name_to_bytes)
+                .any(| attr | {
+                    attr == b"test" || attr == b"test_case"
+                });
+
+            if is_test {
+                for mutator in &self.mutators {
+                    mutator.mutate(function)?;
+                }
+            }
         }
 
         Ok(())
@@ -86,18 +99,23 @@ impl Parse for TestSuite {
             // functions that are tagged as both setup and teardown
             let mut is_suite_arg: bool = false;
             if let Item::Fn(item) = &item {
-                for attr in &item.attrs {
-                    match attribute_name_to_bytes(attr) {
-                        Some(b"setup") => {
+                let mut attributes = item.attrs.iter().filter_map(attribute_name_to_bytes);
+                while let Some(name) = attributes.next() {
+                    match name {
+                        b"setup" => {
                             mutators.insert_unique(
-                                SuiteMutator::Setup(ArgSetup(item.block.stmts.to_owned()))
+                                SuiteMutator::Setup(
+                                    ArgSetup(item.block.stmts.to_owned())
+                                )
                             )?;
 
                             is_suite_arg = true;
                         },
-                        Some(b"teardown") => {
+                        b"teardown" => {
                             mutators.insert_unique(
-                                SuiteMutator::Teardown(ArgTeardown(item.block.stmts.to_owned()))
+                                SuiteMutator::Teardown(
+                                    ArgTeardown(item.block.stmts.to_owned())
+                                )
                             )?;
 
                             is_suite_arg = true;
@@ -122,29 +140,18 @@ impl Parse for TestSuite {
 
 pub fn render_test_suite(mut test_suite: TestSuite) -> TokenStream {
     let mut suite_out: TokenStream = TokenStream::new();
-    let mut contents = test_suite.contents.iter_mut();
-    let braced: Brace = Brace::default();
+    let mut contents = core::mem::take(&mut test_suite.contents);
 
     Mod::default().to_tokens(&mut suite_out);
     test_suite.name.to_tokens(&mut suite_out);
-    braced.surround(&mut suite_out, | suite_inner | {
-        while let Some(item) = contents.next() {
-            if let Item::Fn(function) = item {
-                let is_test = function.attrs.iter()
-                    .filter_map(attribute_name_to_bytes)
-                    .any(| attr | {
-                        attr == b"test" || attr == b"test_case"
-                    });
-
-                if is_test {
-                    for mutator in &test_suite.mutators {
-                        if let Err(e) = mutator.mutate(item) {
-                            e.to_compile_error().to_tokens(suite_inner)
-                        }
-                    }
-                }
+    
+    let braced: Brace = Brace::default();
+    braced.surround(&mut suite_out, | suite_inner |{
+        for item in &mut contents {
+            if let Err(e) = test_suite.mutate(item) {
+                suite_inner.append_all(e.to_compile_error());
             }
-
+    
             item.to_tokens(suite_inner);
         }
     });

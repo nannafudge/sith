@@ -6,20 +6,20 @@ use super::{
 };
 use crate::common::{
     peek_next_tt,
-    greedy_parse_with,
+    greedy_parse_with_delim,
     macros::error_spanned
 };
 use proc_macro2::{
-    TokenStream, TokenTree
+    TokenStream, TokenTree, Literal
 };
 use syn::{
-    Ident, Expr, Item, Token,
+    Ident, Expr, Token,
     FnArg, Result, Stmt, Type, Pat,
     parse::{
         Parse, ParseStream
     },
     token::Comma,
-    punctuated::Pair
+    punctuated::Pair, ItemFn
 };
 
 use quote::ToTokens;
@@ -38,13 +38,12 @@ impl Parse for WithVerbatim {
 }
 
 impl Mutate for WithVerbatim {
-    fn mutate(&self, target: &mut Item) -> Result<()> {
-        if let Item::Fn(function) = target {
-            let next = function.sig.inputs.pop();
-            let arg = parse_fn_arg(next.as_ref())?;
+    type Item = ItemFn;
 
-            if let (ident, Type::Infer(_)) = arg {
-                for stmt in &mut function.block.stmts {
+    fn mutate(&self, target: &mut Self::Item) -> Result<()> {
+        match parse_fn_arg(target.sig.inputs.pop().as_ref())? {
+            (ident, Type::Infer(_)) => {
+                for stmt in &mut target.block.stmts {
                     // This could be optimized
                     let tokens = stmt.to_token_stream().to_string();
                     let new_stmt = syn::parse_str::<Stmt>(
@@ -54,13 +53,12 @@ impl Mutate for WithVerbatim {
                     *stmt = new_stmt;
                 }
 
-                return Ok(());
+                Ok(())
+            },
+            (_, ty) => {
+                Err(error_spanned!("{}\n ^ vertabim(): expected `_`", ty))
             }
-
-            return Err(error_spanned!("{}\n ^ vertabim(): expected `_`", arg.1));
         }
-
-        Err(error_spanned!("{}\n ^ not a function", target))
     }
 }
 
@@ -76,26 +74,24 @@ impl Parse for WithAssignment {
 }
 
 impl Mutate for WithAssignment {
-    fn mutate(&self, target: &mut Item) -> Result<()> {
-        if let Item::Fn(function) = target {
-            if let Ok((ident, ty)) = parse_fn_arg(function.sig.inputs.pop().as_ref()) {
-                let mut tokens = TokenStream::new();
+    type Item = ItemFn;
 
-                syn::token::Let::default().to_tokens(&mut tokens);
-                ident.to_tokens(&mut tokens);
-                syn::token::Colon::default().to_tokens(&mut tokens);
-                ty.to_tokens(&mut tokens);
-                syn::token::Eq::default().to_tokens(&mut tokens);
-                self.0.to_tokens(&mut tokens);
-                syn::token::Semi::default().to_tokens(&mut tokens);
+    fn mutate(&self, target: &mut Self::Item) -> Result<()> {
+        let next = target.sig.inputs.pop();
+        let (ident, ty) = parse_fn_arg(next.as_ref())?;
+        let mut tokens = TokenStream::new();
 
-                function.block.stmts.insert(0, syn::parse2::<Stmt>(tokens)?);
-            }
+        syn::token::Let::default().to_tokens(&mut tokens);
+        ident.to_tokens(&mut tokens);
+        syn::token::Colon::default().to_tokens(&mut tokens);
+        ty.to_tokens(&mut tokens);
+        syn::token::Eq::default().to_tokens(&mut tokens);
+        self.0.to_tokens(&mut tokens);
+        syn::token::Semi::default().to_tokens(&mut tokens);
 
-            return Ok(());
-        }
+        target.block.stmts.insert(0, syn::parse2::<Stmt>(tokens)?);
 
-        Err(error_spanned!("{}\n ^ not a function", target))
+        return Ok(());
     }
 }
 
@@ -135,7 +131,9 @@ impl ToTokens for WithExpr {
 }
 
 impl Mutate for WithExpr {
-    fn mutate(&self, target: &mut Item) -> Result<()> {
+    type Item = ItemFn;
+
+    fn mutate(&self, target: &mut Self::Item) -> Result<()> {
         match self {
             WithExpr::Assignment(item) => item.mutate(target),
             WithExpr::Verbatim(item) => item.mutate(target)
@@ -148,44 +146,31 @@ pub(crate) struct ArgWith(Vec<WithExpr>);
 
 impl Parse for ArgWith {
     fn parse(input: ParseStream) -> Result<Self> {
-        let items: Vec<WithExpr> = greedy_parse_with(input, | input_after: ParseStream | {
-            if !input_after.is_empty() {
-                input_after.parse::<Token![,]>()?;
-            }
-
-            Ok(())
-        })?;
-
+        let items: Vec<WithExpr> = greedy_parse_with_delim::<WithExpr, Token![,]>(input)?;
         Ok(Self(items))
     }
 }
 
 impl Mutate for ArgWith {
-    fn mutate(&self, target: &mut Item) -> Result<()> {
-        let mut inputs = match target {
-            Item::Fn(function) => {
-                if self.0.len() != function.sig.inputs.len() {
-                    return Err(
-                        error_spanned!(
-                            "{}\n ^ expected {} args, found {}",
-                            &function.sig.inputs, &self.0.len().to_string(), &function.sig.inputs.len().to_string()
-                        )
-                    );
-                }
-                // Steal inputs from signature, leaving the original function sig inputs empty
-                Ok(core::mem::take(&mut function.sig.inputs).into_iter())
-            },
-            _ => {
-                Err(error_spanned!("{}\n ^ unexpected arg", &target))
-            }
-        }?;
-        
+    type Item = ItemFn;
+
+    fn mutate(&self, target: &mut Self::Item) -> Result<()> {
+        if self.0.len() != target.sig.inputs.len() {
+            return Err(
+                error_spanned!(
+                    "{}\n ^ expected {} args, found {}",
+                    &target.sig.inputs,
+                    &Literal::usize_unsuffixed(self.0.len()),
+                    &Literal::usize_unsuffixed(target.sig.inputs.len())
+                )
+            );
+        }
+
+        // Steal inputs from signature, leaving the original function sig inputs empty
+        let mut inputs = core::mem::take(&mut target.sig.inputs).into_iter();
         // Apply each mutator with its corresponding input
         for mutator in &self.0 {
-            if let Item::Fn(function) = target {
-                function.sig.inputs.push(inputs.next().unwrap());
-            }
-
+            target.sig.inputs.push(inputs.next().unwrap());
             mutator.mutate(target)?;
         }
 

@@ -2,9 +2,7 @@ use quote::{
     ToTokens,
     spanned::Spanned
 };
-use syn::{
-    Item, Result
-};
+use syn::Result;
 
 use crate::common::macros::error_spanned;
 use std::collections::BTreeSet;
@@ -33,7 +31,9 @@ impl<T: Ord + Spanned + ToTokens> InsertUnique<T> for Mutators<T> {
 }
 
 trait Mutate {
-    fn mutate(&self, target: &mut Item) -> Result<()>;
+    type Item;
+
+    fn mutate(&self, target: &mut Self::Item) -> Result<()>;
 }
 
 trait InsertUnique<T> {

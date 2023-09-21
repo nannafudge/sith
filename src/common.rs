@@ -10,14 +10,11 @@ use syn::{
 };
 
 pub fn attribute_name_to_bytes<'c>(attr: &Attribute) -> Option<&'c [u8]> {
-    let name: Option<&'c [u8]> = attr.meta.path().get_ident().map(| ident: &syn::Ident | {
-        steal(ident.to_string().as_bytes())
-    });
-
-    name
+    let segments = attr.meta.path().segments.iter().rev();
+    segments.last().map(| segment | steal(segment.ident.to_string().as_bytes()))
 }
 
-pub fn parse_delim<'c>(delim: Delimiter, input: ParseStream<'c>) -> Result<TokenStream> {
+pub fn parse_group_with_delim<'c>(delim: Delimiter, input: ParseStream<'c>) -> Result<TokenStream> {
     input.step(| cursor | {
         if let Some((content, _, next)) = cursor.group(delim) {
             return Ok((content.token_stream(), next));
@@ -27,15 +24,15 @@ pub fn parse_delim<'c>(delim: Delimiter, input: ParseStream<'c>) -> Result<Token
     })
 }
 
-pub fn greedy_parse_with<T, F, O>(input: ParseStream, after_hook: F) -> Result<Vec<T>> where
+pub fn greedy_parse_with_delim<T, D>(input: ParseStream) -> Result<Vec<T>> where
     T: Parse,
-    F: for<'a> Fn(ParseStream<'a>) -> Result<O>
+    D: Parse
 {
     let mut out: Vec<T> = Vec::with_capacity(1);
     while !input.is_empty() {
         out.push(input.parse::<T>()?);
         if !input.is_empty() {
-            after_hook(input)?;
+            input.parse::<D>()?;
         }
     }
 
