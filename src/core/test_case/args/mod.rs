@@ -1,3 +1,5 @@
+use crate::common::macros::error_spanned;
+
 use super::{
     Mutate,
     impl_unique_arg,
@@ -21,7 +23,11 @@ pub struct ArgName(pub Ident);
 
 impl Parse for ArgName {
     fn parse(input: ParseStream) -> Result<Self> {
-        Ok(Self(input.parse::<Ident>()?))
+        let Result::Ok(name) = input.parse::<Ident>() else {
+            return Err(error_spanned!("expected test name", &input.span()));
+        };
+
+        Ok(Self(name))
     }
 }
 

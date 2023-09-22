@@ -13,8 +13,8 @@ use crate::common::{
     }
 };
 use proc_macro2::{
-    TokenStream,
-    Delimiter
+    Delimiter, 
+    TokenStream, TokenTree
 };
 use syn::{
     Attribute, AttrStyle,
@@ -60,12 +60,9 @@ impl ToTokens for TestMutator {
 
 impl Parse for TestMutator {
     fn parse(input: ParseStream) -> Result<Self> {
-        let name: Ident = input.parse::<Ident>().map_err(|_| {
-            match parse_next_tt(input) {
-                Ok(token) => input.error(format!("{}\n ^ unexpected arg", token)),
-                Err(e) => e
-            }
-        })?;
+        let Ok(TokenTree::Ident(name)) = parse_next_tt(input) else {
+            return Err(error_spanned!("expected one of: `name`, `arg(...)`", &input.span()));
+        };
 
         match name.to_string().as_bytes() {
             b"with" => {
@@ -130,10 +127,7 @@ pub fn render_test_case(test_case_: TestCase, mut target: ItemFn) -> TokenStream
         }
 
         let attr = target.attrs.remove(i - removed_elements);
-        let parsed_test_case = unwrap_or_err!(
-            attr.parse_args_with(TestCase::parse),
-            error_spanned!("{}", &attr)
-        );
+        let parsed_test_case = unwrap_or_err!(attr.parse_args_with(TestCase::parse));
 
         test_cases.push(parsed_test_case);
 

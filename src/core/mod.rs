@@ -21,7 +21,7 @@ type Mutators<T> = BTreeSet<T>;
 
 impl<T: Ord + Spanned + ToTokens> InsertUnique<T> for Mutators<T> {
     fn insert_unique(&mut self, item: T) -> Result<()> {
-        let err = Err(error_spanned!("{}\n ^ duplicate argument", &item));
+        let err = Err(error_spanned!("duplicate argument", &item));
         if !self.insert(item) {
             return err;
         }
@@ -69,7 +69,7 @@ mod macros {
         ($target:ident $(< $generic:tt $(, $generics:tt)? >)?, $($path:tt)+) => {
             impl $(< $generic $(, $generics)? >)? PartialEq for $target $(<$generic $(, $generics)?>)? {
                 fn eq(&self, other: &$target) -> bool {
-                    self.$($path)+.eq(&other.$($path)+) //$(. $subfields)?.eq(&other.$field $(. $subfields)?)
+                    self.$($path)+.eq(&other.$($path)+)
                 }
             }
             

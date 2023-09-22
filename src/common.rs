@@ -22,7 +22,7 @@ pub fn parse_group_with_delim(delim: Delimiter, input: ParseStream) -> Result<To
             return Ok((content.token_stream(), next));
         }
 
-        Err(cursor.error(format!("Expected delimiter: {:?}", delim)))
+        Err(cursor.error(format!("expected delimiter: {:?}", &delim)))
     })
 }
 
@@ -46,7 +46,7 @@ pub fn peek_next_tt(input: ParseStream) -> Result<TokenTree> {
         return Ok(tt);
     }
 
-    Err(error_spanned!("{} ^ expected token", &input.cursor().token_stream()))
+    Err(error_spanned!("expected token", &input.cursor().token_stream()))
 }
 
 pub fn parse_next_tt(input: ParseStream) -> Result<TokenTree> {
@@ -55,7 +55,7 @@ pub fn parse_next_tt(input: ParseStream) -> Result<TokenTree> {
             return Ok((tt, next));
         }
 
-        Err(error_spanned!("{} ^ expected token", &cursor.token_stream()))
+        Err(error_spanned!("expected token", &cursor.token_stream()))
     })
 }
 
@@ -69,9 +69,12 @@ pub fn steal<'c, T: ?Sized>(item: &T) -> &'c T {
 #[macro_use]
 pub(crate) mod macros {
     macro_rules! error_spanned {
-        ($formatter:literal, $item:expr $(, $other_items:expr )*) => {
+        ($error:literal, $item:expr) => {
+            syn::Error::new(syn::spanned::Spanned::span($item), $error)
+        };
+        (format!($formatter:literal), $item:expr $(, $other_items:expr )*) => {
             syn::Error::new(syn::spanned::Spanned::span($item), &format!(
-                $formatter, quote::ToTokens::to_token_stream($item) $(, quote::ToTokens::to_token_stream($other_items))*
+                $formatter $(, $other_items)*
             ))
         };
     }
@@ -83,6 +86,14 @@ pub(crate) mod macros {
                 return $($error)+.to_compile_error();
             } else {
                 $target.unwrap()
+            }
+        };
+        ($target:expr) => {
+            match $target {
+                Ok(t) => t,
+                Err(e) => {
+                    return e.to_compile_error();
+                }
             }
         };
     }

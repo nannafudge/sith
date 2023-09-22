@@ -43,8 +43,6 @@ impl Mutate for WithVerbatim {
         match parse_fn_arg(target.sig.inputs.pop().as_ref())? {
             (ident, Type::Infer(_)) => {
                 for stmt in &mut target.block.stmts {
-                    // Unsure if this is faster than string.replace()
-                    // TODO: Benchmark
                     let tokens = recursive_descent_replace(
                         &mut TokenBuffer::new2(stmt.to_token_stream()).begin(),
                         ident,
@@ -56,7 +54,7 @@ impl Mutate for WithVerbatim {
                 Ok(())
             },
             (_, ty) => {
-                Err(error_spanned!("{}\n ^ vertabim(): expected `_`", ty))
+                Err(error_spanned!("vertabim(): expected `_`", ty))
             }
         }
     }
@@ -106,25 +104,19 @@ enum WithExpr {
 
 impl Parse for WithExpr {
     fn parse(input: ParseStream) -> Result<Self> {
-        if let TokenTree::Ident(name) = peek_next_tt(input)? {
-            let with_expr_parser = match name.to_string().as_bytes() {
-                b"verbatim" => {
-                    Some(WithVerbatim::parse)
-                },
-                _ => None
-            };
-
-            if let Some(parser) = with_expr_parser {
-                // Pluck the function ident from the input stream
-                // before handing off to the parser function
-                let _ = input.parse::<Ident>();
-                return Ok(
-                    WithExpr::from(input.call(parser)?)
-                );
-            }
+        let Ok(TokenTree::Ident(name)) = peek_next_tt(input) else {
+            // By default assume un-named parameters are direct test function inputs
+            return Ok(WithExpr::Assignment(input.parse::<WithAssignment>()?));
         };
 
-        return Ok(WithExpr::Assignment(input.parse::<WithAssignment>()?));
+        match name.to_string().as_bytes() {
+            b"verbatim" => {
+                Ok(WithExpr::Verbatim(input.parse::<WithVerbatim>()?))
+            },
+            _ => {
+                Err(error_spanned!("with(): unrecognized arg", &input.span()))
+            }
+        }
     }
 }
 
@@ -178,10 +170,10 @@ impl Mutate for ArgWith {
         if self.0.len() != target.sig.inputs.len() {
             return Err(
                 error_spanned!(
-                    "{}\n ^ expected {} args, found {}",
+                    format!("with(): {} fn inputs but only {} args declared"),
                     &target.sig.inputs,
-                    &Literal::usize_unsuffixed(self.0.len()),
-                    &Literal::usize_unsuffixed(target.sig.inputs.len())
+                    &Literal::usize_unsuffixed(target.sig.inputs.len()),
+                    &Literal::usize_unsuffixed(self.0.len())
                 )
             );
         }
@@ -237,10 +229,10 @@ fn parse_fn_arg<'c>(arg: Option<&'c Pair<FnArg, Comma>>) -> Result<(&'c Ident, &
                 }
             }
     
-            return Err(error_spanned!("{}\n ^ invalid arg", &arg));
+            return Err(error_spanned!("invalid arg", &arg));
         },
         _ => {
-            Err(error_spanned!("{:?}\n ^ no corresponding with() input", &arg))
+            Err(error_spanned!("no corresponding input", &arg))
         }
     }
 }
