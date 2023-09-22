@@ -1,7 +1,7 @@
 use super::{
     Mutate,
     impl_unique_arg,
-    impl_to_tokens_wrapped
+    impl_to_tokens_arg
 };
 use syn::{
     Result,
@@ -36,4 +36,4 @@ impl Mutate for ArgName {
 }
 
 impl_unique_arg!(ArgName);
-impl_to_tokens_wrapped!(ArgName, 0);
+impl_to_tokens_arg!(ArgName, 0);

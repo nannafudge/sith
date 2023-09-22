@@ -1,7 +1,7 @@
 use super::{
     Mutate,
     impl_unique_arg,
-    impl_to_tokens_wrapped
+    impl_to_tokens_arg
 };
 use syn::{
     Stmt, Block, Result
@@ -23,7 +23,7 @@ impl Mutate for ArgSetup {
 }
 
 impl_unique_arg!(ArgSetup);
-impl_to_tokens_wrapped!(ArgSetup, iterable(0));
+impl_to_tokens_arg!(ArgSetup, iterable(0));
 
 #[derive(Clone)]
 pub struct ArgTeardown(pub Vec<Stmt>);
@@ -39,4 +39,4 @@ impl Mutate for ArgTeardown {
 }
 
 impl_unique_arg!(ArgTeardown);
-impl_to_tokens_wrapped!(ArgTeardown, iterable(0));
+impl_to_tokens_arg!(ArgTeardown, iterable(0));

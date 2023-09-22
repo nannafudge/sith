@@ -93,7 +93,7 @@ mod macros {
         };
     }
 
-    macro_rules! impl_to_tokens_wrapped {
+    macro_rules! impl_to_tokens_arg {
         ($target:ty, iterable($($path:tt)+)) => {
             impl quote::ToTokens for $target {
                 fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
@@ -122,7 +122,7 @@ mod macros {
     }
 
     pub(crate) use impl_unique_arg;
-    pub(crate) use impl_to_tokens_wrapped;
+    pub(crate) use impl_to_tokens_arg;
     pub(crate) use rustc_test_attribute;
 }
 
