@@ -1,5 +1,7 @@
 # Sith
 
+> **S**imple **I**njectible **T**est **H**arness
+
 Minimal-dependency test harness framework via. simple (definitely unhygenic) AST injection, featuring:
 
 - **Parameterized tests** via: `#[test_case]`
