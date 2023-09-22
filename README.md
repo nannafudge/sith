@@ -19,7 +19,7 @@ Minimal-dependency test harness framework via. simple (definitely unhygenic) AST
 
 ### Note
 
-**Sith was built specifically for another project of mine - features are added as I need currently. Feel free to drop by with [issues](https://github.com/nannafudge/sith/issues) and [feature requests](https://github.com/nannafudge/sith/labels/enhancement) if you like the concept or are finding this useful!**
+**Sith was built specifically for another project of mine - features are added as I need currently. Feel free to drop by with [issues](https://github.com/nannafudge/sith/issues) and [feature requests](https://github.com/nannafudge/sith/labels/enhancement) if you like the concept or find it useful!**
 
 ---
 
@@ -90,7 +90,7 @@ test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 Using `with()`, one can pass in instantiated types on a test-by-test basis, allowing different tests to be ran with different inputs. `with()` currently supports two input forms or ***`subarguments`***:
 
 - **`with(...)`** - Values unrecognized as sub-arguments (non-keywords) are by default interpreted as an instance of a `type` and passed in as such **(default)**
-- **`with(vertabim(...))`**  - Values within a `verbatim()` sub-argument are *uninterpreted*: Tokens within are output to the syntax tree **without parsing**. This allows passing in of **arbitrary input**, and thus, arbitrary parameterization of tests
+- **`with(vertabim(...))`**  - Values within a `verbatim()` sub-argument are *uninterpreted*: Tokens within are output to the syntax tree **uninterpreted**. This allows passing in of **arbitrary input**, and thus, arbitrary parameterization of tests
 
 #### Simple value-binding [`with(...)`]
 
@@ -222,7 +222,7 @@ test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 
 As is traditional - `#[test_suite]` describes a collection of tests that're common with one another. Additional to grouping, `#[test_suite]` allows one to define _**common** setup and **teardown**_ routines, ran before and after each test respectively.
 
-> NOTE: Defined as a module, `#[test_suite]` acts literally like a module. Therefore, any dependencies will need to be imported with `use` inside the `#[test_suite]`. This includes `sith::test_case`. Of course, being a module, `super` also works.
+> **NOTE:** Defined as a module, `#[test_suite]` acts literally like a module. Therefore, any dependencies will need to be imported with `use` inside the `#[test_suite]`. This includes `sith::test_case`. Of course, being a module, `super` also works.
 
 Unparameterized, `#[test_suite]` is fairly useless:
 
@@ -320,7 +320,7 @@ test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 
 #### But ***why?***
 
-Well, doing so allows testing different interfaces that utilize the same underlying logic. For example, given a set of binary tree implementations:
+Well, **doing so allows succinct testing of different interfaces that utilize the same underlying logic**. For example, given a set of btree implementations:
 
 ```rust
 let btreeset = MyBTreeSet::new();
@@ -334,10 +334,11 @@ btreeset.insert(1);
 btreemap.insert(1, 123);
 ```
 
-And we wish to test insertion functions correctly **against their particular interfaces themselves**, rather than the underlying. For example, BTreeMap under the hood utilizes BTreeSet to store `OccupiedEntry<'a, K, V, A>` - an abstraction to allow utilization of existing code. We could test `btreemap` like so:
+And we wish to test insertion functions correctly **against their particular interfaces themselves**, rather than the underlying. 
+
+For example, BTreeMap under the hood utilizes BTreeSet to store `OccupiedEntry<'a, K, V, A>` - an abstraction to allow utilization of existing code. We could test `btreemap` like so:
 
 ```rust
-
 // BTreeMapGenerator: Returns OccupiedEntry<...> structs
 #[test_case(btreeset, with(MyBTreeSet::new(), BTreeSetGenerator::new()))]
 #[test_case(btreemap, with(MyBTreeMap::new(), BTreeMapGenerator::new()))]
@@ -359,8 +360,42 @@ fn insert_order(btree: _, arg_gen: _) {
 
 Unfortunately, this only allows us to test the underlying implementation and not the higher-level interface. If we wanted to test the latter, we'd either have to copy-paste the logic (no bueno), or use declerative macros via. `macro_rules`. Unfortunately, the latter becomes rather unweildy for complex tests or large suites - which is where Sith comes in to play.
 
+##### Wait a minute - why are we re-testing here if the underlying logic is tested?
+
+Well, while we might have guarantees about the underlying, we wish to assure the higher-level wrapper interface works as-intended. This form is essentially an *integration test*, where we're testing appropriate integration of software components (underlying and interface) for implementation-specific regressions.
+
+For example, a facade may have incorrect implementations in its logic for forwarding/receiving data to/from the underlying. The underlying might work, but implementation details in the upper-level may cause unintended, unexpected behaviour.
+
 #### Isn't this insecure, or a potential attack vector?
 
-**Yes!**. Or well, most likely so. Generally, most Procedural Macros admit this pitfall. But that is what it means to harness the power of the dark side...
+**Perhaps!** Or well - it depends on use. In general, parameters bound using `with(verbatim(...))` admit to Rust's Macro hygene rules, provided they're used hygenically. For example, using `verbatim()` in this context:
 
-Luckily, for most projects, there's a rigorous policing of commit activity and code thereof, although there's always potential for things to slip through the cracks. In lieu of such, if safety is paramount, I reccommend looking at [**Watt**, by the venerable dtolnay](https://github.com/dtolnay/watt).
+```rust
+#[test_case(with(Vec::new(), verbatim(len)))]
+fn ultimate_power(vec: Vec<usize>, r#function: _) {
+    println!("{}", vec.r#function());
+}
+```
+
+*only* admits tokens that're *valid* in the [**`ident`** position of a **`ExprCall`**](https://doc.rust-lang.org/reference/paths.html#paths-in-expressions). Attempting to pass in contextually-invalid tokens/syntax (i.e. an `ExprCall` or `Block` statement) would result in a syntax error:
+
+```rust
+#[test_case(with(Vec::new(), verbatim({println!("arbitrary code!")})))]
+fn ultimate_power(vec: Vec<usize>, r#my_arg: _) {
+    println!("{}", vec.r#my_arg());
+}
+```
+
+Outputs:
+
+```
+31 | #[test_case(with(Vec::new(), verbatim({println!("arbitrary code!")})))]
+   |                                       ^ unexpected token
+32 | fn ultimate_power(vec: Vec<usize>, r#my_arg: _) {
+33 |     println!("{}", vec.r#my_arg());
+   |                        - expected one of `,`, `.`, `?`, or an operator
+```
+
+Generally, however, the code is only as secure as the process underlying it's development. Irregardless of hygiene, the attack surface of Rust's compilation process is high - supply chain attacks can easily execute (or otherwise inject) arbitrary code during compilation. If your test utilizes a library that, upstream, has changed to be of malicious intent, then no amount of sanitization will save you.
+
+Luckily, for most projects, there's a rigorous policing of commit activity and code thereof, although there's always potential for things to slip through the cracks. In lieu of such, if safety is paramount, I reccommend looking at [**Watt**, by the venerable dtolnay](https://github.com/dtolnay/watt) (and generally - to keep an eye out on [this pre-RFC.](https://internals.rust-lang.org/t/pre-rfc-sandboxed-deterministic-reproducible-efficient-wasm-compilation-of-proc-macros/19359))
