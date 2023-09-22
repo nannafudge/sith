@@ -24,8 +24,13 @@ fn parameterized_sith_magic(my_arg: _) {
 
 #[test_case(format_one, with(verbatim("format_one {:?}"), verbatim(usize)))]
 #[test_case(format_two, with(verbatim("format_two {:?}"), verbatim(f32)))]
-fn extreme_sith_magic(r#formatter: _, r#my_arg: _) {
+fn ultimate_power(r#formatter: _, r#my_arg: _) {
     println!(r#formatter, <r#my_arg>::default());
+}
+
+#[test_case(with(Vec::new(), verbatim({println!("arbitrary code!")})))]
+fn ultimate_power(vec: Vec<usize>, r#my_arg: _) {
+    println!("{}", vec.r#my_arg());
 }
 
 fn main() {}

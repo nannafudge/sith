@@ -36,4 +36,4 @@ impl Mutate for ArgName {
 }
 
 impl_unique_arg!(ArgName);
-impl_to_tokens_wrapped!(ArgName);
+impl_to_tokens_wrapped!(ArgName, 0);

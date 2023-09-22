@@ -23,7 +23,7 @@ impl Mutate for ArgSetup {
 }
 
 impl_unique_arg!(ArgSetup);
-impl_to_tokens_wrapped!(ArgSetup: collection);
+impl_to_tokens_wrapped!(ArgSetup, iterable(0));
 
 #[derive(Clone)]
 pub struct ArgTeardown(pub Vec<Stmt>);
@@ -39,4 +39,4 @@ impl Mutate for ArgTeardown {
 }
 
 impl_unique_arg!(ArgTeardown);
-impl_to_tokens_wrapped!(ArgTeardown: collection);
+impl_to_tokens_wrapped!(ArgTeardown, iterable(0));

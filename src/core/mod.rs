@@ -66,10 +66,10 @@ mod macros {
                 }
             }
         };
-        ($target:ident $(< $generic:tt $(, $generics:tt)? >)?, $field:ident $(. $subfields:ident )?) => {
+        ($target:ident $(< $generic:tt $(, $generics:tt)? >)?, $($path:tt)+) => {
             impl $(< $generic $(, $generics)? >)? PartialEq for $target $(<$generic $(, $generics)?>)? {
-                fn eq(&self, other: &Self) -> bool {
-                    self.$field $(. $subfields)?.eq(&other.$field $(. $subfields)?)
+                fn eq(&self, other: &$target) -> bool {
+                    self.$($path)+.eq(&other.$($path)+) //$(. $subfields)?.eq(&other.$field $(. $subfields)?)
                 }
             }
             
@@ -78,8 +78,8 @@ mod macros {
             }
 
             impl $(<$generic $(, $generics)?>)? PartialOrd for $target $(<$generic $(, $generics)?>)? {
-                fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
-                    self.$field $(. $subfields)?.partial_cmp(&other.$field $(. $subfields)?)
+                fn partial_cmp(&self, other: &$target) -> Option<core::cmp::Ordering> {
+                    self.$($path)+.partial_cmp(&other.$($path)+)
                 }
             }
             
@@ -94,17 +94,17 @@ mod macros {
     }
 
     macro_rules! impl_to_tokens_wrapped {
-        ($target:ty) => {
+        ($target:ty, iterable($($path:tt)+)) => {
             impl quote::ToTokens for $target {
                 fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-                    self.0.to_tokens(tokens);
+                    self.$($path)+.iter().for_each(| item | item.to_tokens(tokens));
                 }
             }
         };
-        ($target:ty: collection) => {
+        ($target:ty, $($path:tt)+) => {
             impl quote::ToTokens for $target {
                 fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-                    self.0.iter().for_each(| item | item.to_tokens(tokens));
+                    self.$($path)+.to_tokens(tokens);
                 }
             }
         };
@@ -125,3 +125,14 @@ mod macros {
     pub(crate) use impl_to_tokens_wrapped;
     pub(crate) use rustc_test_attribute;
 }
+
+struct Two(One);
+struct One();
+
+impl One {
+    pub fn my_fn(&self) -> core::cmp::Ordering {
+        core::cmp::Ordering::Equal
+    }
+}
+
+macros::impl_unique_arg!(Two, 0.my_fn());

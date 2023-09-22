@@ -111,7 +111,7 @@ impl Parse for TestCase {
     }
 }
 
-impl_to_tokens_wrapped!(TestCase: collection);
+impl_to_tokens_wrapped!(TestCase, iterable(0));
 
 fn parse_arg_parameterized<T: Parse>(input: ParseStream) -> Result<T> {
     let arg_inner: TokenStream = parse_group_with_delim(Delimiter::Parenthesis, input)?;

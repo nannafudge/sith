@@ -62,7 +62,7 @@ impl Mutate for WithVerbatim {
     }
 }
 
-impl_to_tokens_wrapped!(WithVerbatim);
+impl_to_tokens_wrapped!(WithVerbatim, 0);
 
 #[derive(Clone)]
 struct WithAssignment(Expr);
@@ -95,7 +95,7 @@ impl Mutate for WithAssignment {
     }
 }
 
-impl_to_tokens_wrapped!(WithAssignment);
+impl_to_tokens_wrapped!(WithAssignment, 0);
 
 #[derive(Clone)]
 enum WithExpr {
@@ -199,7 +199,7 @@ impl Mutate for ArgWith {
 }
 
 impl_unique_arg!(ArgWith);
-impl_to_tokens_wrapped!(ArgWith: collection);
+impl_to_tokens_wrapped!(ArgWith, iterable(0));
 
 fn recursive_descent_replace<'a>(input: &mut Cursor<'a>, pattern: &Ident, substitute: &TokenStream) -> TokenStream {
     let mut out = TokenStream::new();
