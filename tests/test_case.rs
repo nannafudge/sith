@@ -110,7 +110,7 @@ mod with {
         #[test_case(with(0, 1))]
         fn inner(first: _, second: _) {
             assert_eq!(first, 0usize);
-            assert_eq!(second, 0usize);
+            assert_eq!(second, 1usize);
             assert_eq!(first + second, 1usize);
         }
 
