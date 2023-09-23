@@ -43,7 +43,7 @@ impl Mutate for WithVerbatim {
 
     fn mutate(&self, target: &mut Self::Item) -> Result<()> {
         
-        match parse_fn_arg(target.sig.inputs.pop().as_ref())? {
+        match parse_fn_param(target.sig.inputs.pop().as_ref())? {
             (_, Pat::Ident(def), Type::Infer(_)) => {
                 for stmt in &mut target.block.stmts {
                     let tokens = recursive_descent_replace(
@@ -79,7 +79,7 @@ impl Mutate for WithAssignment {
 
     fn mutate(&self, target: &mut Self::Item) -> Result<()> {
         let fn_input = target.sig.inputs.pop();
-        let (attrs, Pat::Ident(def), ty) = parse_fn_arg(fn_input.as_ref())? else {
+        let (attrs, Pat::Ident(def), ty) = parse_fn_param(fn_input.as_ref())? else {
             return Err(error_spanned!("expected identifier", &fn_input));
         };
 
@@ -179,10 +179,11 @@ impl Mutate for ArgWith {
             );
         }
 
-        // Steal inputs from signature, leaving the original function sig inputs empty
         let mut inputs = core::mem::take(&mut target.sig.inputs).into_iter();
-        // Apply each mutator with its corresponding input
+
         for mutator in &self.0 {
+            // Use target.sig.inputs vec as an input queue/stack -
+            // with() mutators read from this and apply their mutation to such
             target.sig.inputs.push(inputs.next().unwrap());
             mutator.mutate(target)?;
         }
@@ -220,20 +221,17 @@ fn recursive_descent_replace<'a>(input: &mut Cursor<'a>, pattern: &Ident, substi
     out
 }
 
-fn parse_fn_arg<'c>(arg: Option<&'c Pair<FnArg, Comma>>) -> Result<(&[Attribute], &Pat, &Type)> {
-    match arg {
-        Some(Pair::Punctuated(fn_arg, _)) | Some(Pair::End(fn_arg)) => {
-            if let FnArg::Typed(typed_arg) = fn_arg {
-                return Ok((typed_arg.attrs.as_slice(), &*typed_arg.pat, &*typed_arg.ty));
-                /*if let Pat::Ident(decl) = typed_arg.pat.as_ref() {
-                    return Ok((&decl.ident, typed_arg.ty.as_ref()));
-                }*/
+fn parse_fn_param<'c>(fn_param: Option<&'c Pair<FnArg, Comma>>) -> Result<(&[Attribute], &Pat, &Type)> {
+    match fn_param {
+        Some(Pair::Punctuated(param, _)) | Some(Pair::End(param)) => {
+            if let FnArg::Typed(typed) = param {
+                return Ok((typed.attrs.as_slice(), &*typed.pat, &*typed.ty));
             }
 
-            return Err(error_spanned!("invalid arg", &arg));
+            return Err(error_spanned!("invalid parameter", &fn_param));
         },
         _ => {
-            Err(error_spanned!("no corresponding input", &arg))
+            Err(error_spanned!("no corresponding input", &fn_param))
         }
     }
 }
