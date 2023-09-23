@@ -13,8 +13,9 @@ use proc_macro2::{
     TokenStream, TokenTree, Literal, Group
 };
 use syn::{
-    Ident, Expr, ItemFn, Token,
-    FnArg, Result, Stmt, Type, Pat,
+    Ident, Type, Pat, Attribute,
+    ItemFn, FnArg, Expr, Stmt,
+    Token, Result,
     parse::{
         Parse, ParseStream
     },
@@ -22,10 +23,10 @@ use syn::{
         TokenBuffer, Cursor
     },
     token::Comma,
-    punctuated::Pair
+    punctuated::Pair,
 };
 
-use quote::ToTokens;
+use quote::{ToTokens, TokenStreamExt};
 
 #[derive(Clone)]
 struct WithVerbatim(TokenStream);
@@ -41,12 +42,13 @@ impl Mutate for WithVerbatim {
     type Item = ItemFn;
 
     fn mutate(&self, target: &mut Self::Item) -> Result<()> {
+        
         match parse_fn_arg(target.sig.inputs.pop().as_ref())? {
-            (ident, Type::Infer(_)) => {
+            (_, Pat::Ident(def), Type::Infer(_)) => {
                 for stmt in &mut target.block.stmts {
                     let tokens = recursive_descent_replace(
                         &mut TokenBuffer::new2(stmt.to_token_stream()).begin(),
-                        ident,
+                        &def.ident,
                         &self.0
                     );
                     *stmt = syn::parse2::<Stmt>(tokens)?;
@@ -54,7 +56,7 @@ impl Mutate for WithVerbatim {
 
                 Ok(())
             },
-            (_, ty) => {
+            (_, _, ty) => {
                 Err(error_spanned!("vertabim(): expected `_`", ty))
             }
         }
@@ -76,20 +78,17 @@ impl Mutate for WithAssignment {
     type Item = ItemFn;
 
     fn mutate(&self, target: &mut Self::Item) -> Result<()> {
-        let next = target.sig.inputs.pop();
-        let (ident, ty) = parse_fn_arg(next.as_ref())?;
-        let mut tokens = TokenStream::new();
+        let fn_input = target.sig.inputs.pop();
+        let (attrs, Pat::Ident(def), ty) = parse_fn_arg(fn_input.as_ref())? else {
+            return Err(error_spanned!("expected identifier", &fn_input));
+        };
 
-        syn::token::Let::default().to_tokens(&mut tokens);
-        ident.to_tokens(&mut tokens);
-        syn::token::Colon::default().to_tokens(&mut tokens);
-        ty.to_tokens(&mut tokens);
-        syn::token::Eq::default().to_tokens(&mut tokens);
-        self.0.to_tokens(&mut tokens);
-        syn::token::Semi::default().to_tokens(&mut tokens);
+        let mut tokens = TokenStream::new();
+        // Apply defined attributes above the composed `let` statement
+        tokens.append_all(attrs);
+        quote::quote!(let #def: #ty = #self;).to_tokens(&mut tokens);
 
         target.block.stmts.insert(0, syn::parse2::<Stmt>(tokens)?);
-
         return Ok(());
     }
 }
@@ -221,13 +220,14 @@ fn recursive_descent_replace<'a>(input: &mut Cursor<'a>, pattern: &Ident, substi
     out
 }
 
-fn parse_fn_arg<'c>(arg: Option<&'c Pair<FnArg, Comma>>) -> Result<(&'c Ident, &'c Type)> {
+fn parse_fn_arg<'c>(arg: Option<&'c Pair<FnArg, Comma>>) -> Result<(&[Attribute], &Pat, &Type)> {
     match arg {
         Some(Pair::Punctuated(fn_arg, _)) | Some(Pair::End(fn_arg)) => {
             if let FnArg::Typed(typed_arg) = fn_arg {
-                if let Pat::Ident(decl) = typed_arg.pat.as_ref() {
+                return Ok((typed_arg.attrs.as_slice(), &*typed_arg.pat, &*typed_arg.ty));
+                /*if let Pat::Ident(decl) = typed_arg.pat.as_ref() {
                     return Ok((&decl.ident, typed_arg.ty.as_ref()));
-                }
+                }*/
             }
 
             return Err(error_spanned!("invalid arg", &arg));
