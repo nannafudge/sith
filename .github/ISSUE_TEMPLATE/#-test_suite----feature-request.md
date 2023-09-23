@@ -1,8 +1,8 @@
 ---
-name: "#[test_case] - Feature Request"
-about: 'Request a new feature for the #[test_case] attribute'
-title: "#[test_case] - "
-labels: 'feature, #[test_case]'
+name: "#[test_suite] - Feature Request"
+about: 'Request a new for the #[test_suite] attribute'
+title: "#[test_suite] - "
+labels: 'feature, #[test_suite]'
 assignees: nannafudge
 
 ---
