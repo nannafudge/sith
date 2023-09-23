@@ -7,10 +7,7 @@ use crate::common::{
     parse_next_tt,
     parse_group_with_delim, 
     attribute_name_to_bytes,
-    macros::{
-        error_spanned,
-        unwrap_or_err
-    }
+    macros::unwrap_or_err
 };
 use proc_macro2::{
     Delimiter, 
@@ -61,7 +58,7 @@ impl ToTokens for TestMutator {
 impl Parse for TestMutator {
     fn parse(input: ParseStream) -> Result<Self> {
         let Ok(TokenTree::Ident(name)) = parse_next_tt(input) else {
-            return Err(error_spanned!("expected one of: `name`, `arg(...)`", &input.span()));
+            return Err(input.error("expected one of: `name`, `arg(...)`"));
         };
 
         match name.to_string().as_bytes() {

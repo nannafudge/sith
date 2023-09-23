@@ -9,8 +9,6 @@ use syn::{
     }
 };
 
-use macros::error_spanned;
-
 pub fn attribute_name_to_bytes<'c>(attr: &Attribute) -> Option<&'c [u8]> {
     let segments = attr.meta.path().segments.iter().rev();
     segments.last().map(| segment | steal(segment.ident.to_string().as_bytes()))
@@ -42,20 +40,15 @@ pub fn greedy_parse_with_delim<T, D>(input: ParseStream) -> Result<Vec<T>> where
 }
 
 pub fn peek_next_tt(input: ParseStream) -> Result<TokenTree> {
-    if let Some((tt, _)) = input.cursor().token_tree() {
-        return Ok(tt);
+    match input.cursor().token_tree() {
+        Some((tt, _)) => Ok(tt),
+        _ => Err(input.error("expected token"))
     }
-
-    Err(error_spanned!("expected token", &input.cursor().token_stream()))
 }
 
 pub fn parse_next_tt(input: ParseStream) -> Result<TokenTree> {
     input.step(| cursor | {
-        if let Some((tt, next)) = cursor.token_tree() {
-            return Ok((tt, next));
-        }
-
-        Err(error_spanned!("expected token", &cursor.token_stream()))
+        cursor.token_tree().ok_or(input.error("expected token"))
     })
 }
 
