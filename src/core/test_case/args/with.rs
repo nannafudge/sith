@@ -32,6 +32,7 @@ struct WithVerbatim(TokenStream);
 
 impl Parse for WithVerbatim {
     fn parse(input: ParseStream) -> Result<Self> {
+        let _ = input.parse::<Ident>();
         Ok(Self(parse_arg_parameterized::<TokenStream>(input)?))
     }
 }
@@ -104,17 +105,18 @@ enum WithExpr {
 
 impl Parse for WithExpr {
     fn parse(input: ParseStream) -> Result<Self> {
-        let Ok(TokenTree::Ident(name)) = peek_next_tt(input) else {
+        let TokenTree::Ident(name) = peek_next_tt(input)? else {
             // By default assume un-named parameters are direct test function inputs
             return Ok(WithExpr::Assignment(input.parse::<WithAssignment>()?));
         };
 
         match name.to_string().as_bytes() {
             b"verbatim" => {
-                Ok(WithExpr::Verbatim(input.parse::<WithVerbatim>()?))
+                return Ok(WithExpr::Verbatim(input.parse::<WithVerbatim>()?));
             },
             _ => {
-                Err(error_spanned!("with(): unrecognized arg", &input.span()))
+                // Might be Union/Struct Tuple/Enum Variant - attempt to parse
+                return Ok(WithExpr::Assignment(input.parse::<WithAssignment>()?));
             }
         }
     }
@@ -198,8 +200,7 @@ fn recursive_descent_replace<'a>(input: &mut Cursor<'a>, pattern: &Ident, substi
     while let Some((tt, next)) = input.token_tree() {
         match tt {
             TokenTree::Group(item) => {
-                let (mut start, _, _) = input.group(item.delimiter())
-                    .expect("Invariant: Expected group contents");
+                let (mut start, _, _) = input.group(item.delimiter()).unwrap();
 
                 Group::new(
                     item.delimiter(),
@@ -228,7 +229,7 @@ fn parse_fn_arg<'c>(arg: Option<&'c Pair<FnArg, Comma>>) -> Result<(&'c Ident, &
                     return Ok((&decl.ident, typed_arg.ty.as_ref()));
                 }
             }
-    
+
             return Err(error_spanned!("invalid arg", &arg));
         },
         _ => {
