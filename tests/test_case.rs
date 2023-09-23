@@ -52,7 +52,7 @@ mod with {
     use super::test_case;
 
     #[test]
-    fn parameterized_argwith() {
+    fn argwith_single_input() {
         #[test_case(with(0))]
         fn inner(val: usize) {
             assert_eq!(val, 0usize);
@@ -62,7 +62,7 @@ mod with {
     }
 
     #[test]
-    fn parameterized_argwith_multiple_inputs() {
+    fn argwith_multiple_inputs() {
         #[test_case(with(0, 1, 2))]
         fn inner(zero: usize, one: usize, two: usize) {
             assert_eq!((zero, one, two), (0usize, 1usize, 2usize));
@@ -72,17 +72,7 @@ mod with {
     }
 
     #[test]
-    fn parameterized_argwith_multiple_input_types() {
-        #[test_case(with(0, 1, 2))]
-        fn inner(zero: isize, one: usize, two: u8) {
-            assert_eq!((zero, one, two), (0isize, 1usize, 2u8));
-        }
-
-        inner();
-    }
-
-    #[test]
-    fn parameterized_argwith_multiple_args_and_cases() {
+    fn argwith_multiple_inputs_and_cases() {
         #[test_case(zero, with(0, 0))]
         #[test_case(one, with(1, 1))]
         fn inner(val: usize, other: usize) {
@@ -94,7 +84,17 @@ mod with {
     }
 
     #[test]
-    fn parameterized_argwith_multiple_types_and_args_and_cases() {
+    fn argwith_multiple_input_types() {
+        #[test_case(with(0, 1, 2))]
+        fn inner(zero: isize, one: usize, two: u8) {
+            assert_eq!((zero, one, two), (0isize, 1usize, 2u8));
+        }
+
+        inner();
+    }
+
+    #[test]
+    fn argwith_multiple_types_and_args_and_cases() {
         #[test_case(one_plus_one, with(1, 1, 2))]
         #[test_case(one_plus_two, with(1, 2, 3))]
         fn inner(first: isize, second: usize, third: u8) {
@@ -106,7 +106,7 @@ mod with {
     }
 
     #[test]
-    fn parameterized_argwith_ducked_types() {
+    fn argwith_ducked_types() {
         #[test_case(with(0, 1))]
         fn inner(first: _, second: _) {
             assert_eq!(first, 0usize);
@@ -118,7 +118,7 @@ mod with {
     }
 
     #[test]
-    fn parameterized_argwith_multiple_user_defined_types() {
+    fn argwith_multiple_user_defined_types() {
         #[derive(Debug, PartialEq)]
         struct MyStruct(usize);
         
@@ -137,20 +137,54 @@ mod with {
         inner_struct();
         inner_enum();
     }
+
+    #[test]
+    fn argwith_verbatim_type() {
+        #[test_case(usize, with(0, verbatim(usize)))]
+        #[test_case(isize, with(0, verbatim(isize)))]
+        fn inner(val: _, r#verb: _) {
+            assert_eq!(val as r#verb, <r#verb>::default());
+        }
+
+        inner_usize();
+        inner_isize();
+    }
+
+    #[test]
+    fn argwith_verbatim_empty_input() {
+        #[test_case(with(0, verbatim()))]
+        fn inner(val: _, r#verb: _) {
+            assert_eq!(val, r#verb val);
+        }
+
+        inner();
+    }
+
+    #[test]
+    fn argwith_verbatim_function() {
+        #[test_case(unwrap, with(Option::Some(0), verbatim(), verbatim(as_ref)))]
+        #[test_case(unwrap_mut, with(mut Option::Some(0), verbatim(mut), verbatim(as_mut)))]
+        fn inner(opt: _, r#mut: _, r#method: _) {
+            assert_eq!(opt.r#method(), Option::Some(&r#mut 0));
+        }
+
+        inner_unwrap();
+        inner_unwrap_mut();
+    }
 }
 mod multiple_args {
     use super::test_case;
 
     #[test]
-    fn parameterized_test_case_argwith_argname() {
-        #[test_case(one, with(0))]
-        fn inner(val: usize) {
-            assert_eq!(val, 0usize);
+    fn argwith_argname_permutations() {
+        #[test_case(one, with(0, verbatim(assert_eq!)))]
+        fn inner(val: usize, r#assert: _) {
+            r#assert(val, 0usize);
         }
 
-        #[test_case(with(0), two)]
-        fn inner(val: usize) {
-            assert_eq!(val, 0usize);
+        #[test_case(with(verbatim(assert_eq!), 0), two)]
+        fn inner(r#assert: _, val: usize) {
+            r#assert(val, 0usize);
         }
 
         inner_one();
