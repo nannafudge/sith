@@ -22,8 +22,10 @@ use syn::{
     buffer::{
         TokenBuffer, Cursor
     },
-    token::Comma,
-    punctuated::Pair,
+    token::{
+        Comma, Mut
+    },
+    punctuated::Pair
 };
 
 use quote::{ToTokens, TokenStreamExt};
@@ -42,8 +44,7 @@ impl Mutate for WithVerbatim {
     type Item = ItemFn;
 
     fn mutate(&self, target: &mut Self::Item) -> Result<()> {
-        
-        match parse_fn_param(target.sig.inputs.pop().as_ref())? {
+        match parse_fn_param(target.sig.inputs.pop().as_mut())? {
             (_, Pat::Ident(def), Type::Infer(_)) => {
                 for stmt in &mut target.block.stmts {
                     let tokens = recursive_descent_replace(
@@ -66,11 +67,11 @@ impl Mutate for WithVerbatim {
 impl_to_tokens_arg!(WithVerbatim, 0);
 
 #[derive(Clone)]
-struct WithAssignment(Expr);
+struct WithAssignment(Option<Mut>, Expr);
 
 impl Parse for WithAssignment {
     fn parse(input: ParseStream) -> Result<Self> {
-        Ok(Self(input.parse()?))
+        Ok(Self(input.parse::<Mut>().ok(), input.parse::<Expr>()?))
     }
 }
 
@@ -78,10 +79,15 @@ impl Mutate for WithAssignment {
     type Item = ItemFn;
 
     fn mutate(&self, target: &mut Self::Item) -> Result<()> {
-        let fn_input = target.sig.inputs.pop();
-        let (attrs, Pat::Ident(def), ty) = parse_fn_param(fn_input.as_ref())? else {
+        let mut fn_input = target.sig.inputs.pop();
+        let (attrs, Pat::Ident(def), ty) = parse_fn_param(fn_input.as_mut())? else {
             return Err(error_spanned!("expected identifier", &fn_input));
         };
+
+        // If mut override is present, ensure it's set
+        if self.0.is_some() {
+            def.mutability = self.0;
+        }
 
         let mut tokens = TokenStream::new();
         // Apply defined attributes above the composed `let` statement
@@ -93,7 +99,7 @@ impl Mutate for WithAssignment {
     }
 }
 
-impl_to_tokens_arg!(WithAssignment, 0);
+impl_to_tokens_arg!(WithAssignment, 1);
 
 #[derive(Clone)]
 enum WithExpr {
@@ -221,14 +227,14 @@ fn recursive_descent_replace<'a>(input: &mut Cursor<'a>, pattern: &Ident, substi
     out
 }
 
-fn parse_fn_param<'c>(fn_param: Option<&'c Pair<FnArg, Comma>>) -> Result<(&[Attribute], &Pat, &Type)> {
+fn parse_fn_param<'c>(fn_param: Option<&'c mut Pair<FnArg, Comma>>) -> Result<(&mut [Attribute], &mut Pat, &mut Type)> {
     match fn_param {
         Some(Pair::Punctuated(param, _)) | Some(Pair::End(param)) => {
             if let FnArg::Typed(typed) = param {
-                return Ok((typed.attrs.as_slice(), &*typed.pat, &*typed.ty));
+                return Ok((typed.attrs.as_mut_slice(), &mut *typed.pat, &mut *typed.ty));
             }
 
-            return Err(error_spanned!("invalid parameter", &fn_param));
+            return Err(error_spanned!("invalid parameter", &param));
         },
         _ => {
             Err(error_spanned!("no corresponding input", &fn_param))
