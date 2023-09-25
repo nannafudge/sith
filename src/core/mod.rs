@@ -125,14 +125,3 @@ mod macros {
     pub(crate) use impl_to_tokens_arg;
     pub(crate) use rustc_test_attribute;
 }
-
-struct Two(One);
-struct One();
-
-impl One {
-    pub fn my_fn(&self) -> core::cmp::Ordering {
-        core::cmp::Ordering::Equal
-    }
-}
-
-macros::impl_unique_arg!(Two, 0.my_fn());
