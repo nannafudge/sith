@@ -94,3 +94,244 @@ pub(crate) mod macros {
     pub(crate) use error_spanned;
     pub(crate) use unwrap_or_err;
 }
+
+#[cfg(test)]
+pub(crate) mod tests {
+    use super::*;
+    use shim::*;
+    use macros::*;
+
+    use proc_macro2::Span;
+    use quote::{
+        quote, ToTokens
+    };
+
+    #[test]
+    fn steal_str() {
+        let foo: &str = "foo";
+        {
+            let bar = steal(foo);
+            assert_eq!(bar, "foo");
+        } 
+    }
+
+    #[test]
+    fn steal_bytes() {
+        let foo: &[u8] = b"foo";
+        {
+            let bar = steal(foo);
+            assert_eq!(bar, b"foo");
+        } 
+    }
+
+    mod attribute_name_to_bytes {
+        use super::*;
+
+        use syn::{
+            AttrStyle, Path, Meta,
+            punctuated::Punctuated
+        };
+
+        #[test]
+        fn empty() {
+            let attr = construct_attribute!(
+                AttrStyle::Outer,
+                Meta::Path(Path{ leading_colon: None, segments: Punctuated::new() })
+            );
+
+            assert_eq!(attribute_name_to_bytes(&attr), None);
+        }
+
+        #[test]
+        fn path() {
+            let attr = construct_attribute!(
+                AttrStyle::Outer,
+                construct_attribute_meta!(test)
+            );
+
+            println!("{:?}", attribute_name_to_bytes(&attr).unwrap());
+            println!("{:?}", syn::Ident::new("test", Span::call_site()).to_string().as_bytes());
+            println!("{:?}", "test");
+            println!("{:?}", steal("test"));
+            //, Some("test".as_bytes()));
+        }
+    }
+
+
+    mod parse_next_tt {
+        use super::*;
+
+        use proc_macro2::{
+            Group, Delimiter,
+            Punct, Spacing,
+            Ident, Literal,
+            TokenTree
+        };
+
+        impl_parse_shim!(TokenTree, parse_next_tt);
+    
+        #[test]
+        fn group() {
+            assert_eq_with_shim!(
+                syn::parse2::<ParseShim<TokenTree>>(quote!((inner))),
+                Ok(Group::new(Delimiter::Parenthesis, quote!(inner)))
+            );
+        }
+
+        #[test]
+        fn ident() {
+            assert_eq_with_shim!(
+                syn::parse2::<ParseShim<TokenTree>>(quote!(test)),
+                Ok(Ident::new("test", Span::call_site()))
+            );
+        }
+
+        #[test]
+        fn punct() {
+            assert_eq_with_shim!(
+                syn::parse2::<ParseShim<TokenTree>>(quote!(,)),
+                Ok(Punct::new(',', Spacing::Alone))
+            );
+        }
+
+        #[test]
+        fn literal() {
+            assert_eq_with_shim!(
+                syn::parse2::<ParseShim<TokenTree>>(quote!("test")),
+                Ok(Literal::string("test"))
+            );
+        }
+
+        #[test]
+        fn empty() {
+            // Seems like syn returns its own 'end of input' error, regardless of
+            // implementation - in case their error message changes, simply test
+            // we propegate the error correctly
+            assert!(syn::parse2::<ParseShim<TokenTree>>(quote!()).is_err());
+        }
+    }
+
+    mod peek_next_tt {
+        use super::*;
+
+        use proc_macro2::{
+            Group, Delimiter,
+            Punct, Spacing,
+            Ident, Literal,
+            TokenTree
+        };
+
+        // Takes an input stream and asserts that, post peek(),
+        // it hasn't been moved
+        fn peek_next_tt_spy(input: ParseStream) -> Result<TokenTree> {
+            let start = input.fork();
+            let out = peek_next_tt(input);
+            assert_eq!(
+                start.cursor().token_stream().to_string(),
+                input.cursor().token_stream().to_string()
+            );
+
+            // For some reason, you need to advance
+            // the input stream post-parse, otherwise
+            // syn errors out if the parse stream hasn't been
+            // read from...
+            let _ = input.parse::<TokenTree>();
+
+            out
+        }
+
+        impl_parse_shim!(TokenTree, peek_next_tt_spy);
+
+        #[test]
+        fn group() {
+            assert_eq_with_shim!(
+                syn::parse2::<ParseShim<TokenTree>>(quote!((inner))),
+                Ok(Group::new(Delimiter::Parenthesis, quote!(inner)))
+            );
+        }
+
+        #[test]
+        fn ident() {
+            assert_eq_with_shim!(
+                syn::parse2::<ParseShim<TokenTree>>(quote!(test)),
+                Ok(Ident::new("test", Span::call_site()))
+            );
+        }
+
+        #[test]
+        fn punct() {
+            assert_eq_with_shim!(
+                syn::parse2::<ParseShim<TokenTree>>(quote!(,)),
+                Ok(Punct::new(',', Spacing::Alone))
+            );
+        }
+
+        #[test]
+        fn literal() {
+            assert_eq_with_shim!(
+                syn::parse2::<ParseShim<TokenTree>>(quote!("test")),
+                Ok(Literal::string("test"))
+            );
+        }
+    
+        #[test]
+        fn empty() {
+            assert!(syn::parse2::<ParseShim<TokenTree>>(quote!()).is_err());
+        }
+    }
+
+    pub(crate) mod shim {
+        macro_rules! impl_parse_shim {
+            ($for_type:ty, $use_fn:path) => {
+                #[derive(Debug)]
+                pub struct ParseShim<T>(pub T);
+
+                impl syn::parse::Parse for ParseShim<$for_type> {
+                    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+                        Ok(Self($use_fn(input)?))
+                    }
+                }
+            };
+        }
+    
+        macro_rules! assert_eq_with_shim {
+            ($left:expr, Ok($right:expr)) => {
+                match &$left {
+                    Ok(left) if left.0.to_token_stream().to_string().eq(&$right.to_token_stream().to_string()) => {},
+                    _ => panic!("assertion failed:\nleft: {:?}\nright:{:?}", &$left, &$right)
+                };
+            };
+            ($left:expr, Err($right:expr)) => {
+                match &$left {
+                    Err(left) if left.to_compile_error().to_string().eq(&$right.to_compile_error().to_string()) => {},
+                    _ => panic!("assertion failed:\nleft: {:?}\nright:{:?}", &$left, &$right)
+                };
+            };
+        }
+
+        pub(crate) use impl_parse_shim;
+        pub(crate) use assert_eq_with_shim;
+    }
+
+    pub(crate) mod macros {
+        macro_rules! construct_attribute {
+            ($style:expr, $meta:expr) => {
+                syn::Attribute {
+                    pound_token: syn::token::Pound::default(),
+                    style: $style,
+                    bracket_token: syn::token::Bracket::default(),
+                    meta: $meta
+                }
+            };
+        }
+
+        macro_rules! construct_attribute_meta {
+            ($($tokens:tt)*) => {
+                syn::parse2::<syn::Meta>(quote::quote!($($tokens)*)).expect("Invalid attribute meta")
+            };
+        }
+
+        pub(crate) use construct_attribute;
+        pub(crate) use construct_attribute_meta;
+    }
+}
