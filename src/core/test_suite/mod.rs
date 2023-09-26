@@ -1,8 +1,8 @@
-use crate::common::attribute_name_to_bytes;
+use crate::common::attribute_name_to_str;
 use super::{
     InsertUnique,
     Mutate, Mutators,
-    macros::*
+    TestCase, macros::*
 };
 use syn::{
     Attribute,
@@ -15,9 +15,11 @@ use syn::{
         Mod, Brace
     }
 };
-
-use quote::{ToTokens, TokenStreamExt};
+use quote::{
+    ToTokens, TokenStreamExt
+};
 use proc_macro2::TokenStream;
+
 use core::mem::take;
 
 mod args;
@@ -54,13 +56,13 @@ impl ToTokens for SuiteMutator {
 impl SuiteMutator {
     fn new_from(function: &mut ItemFn) -> Option<SuiteMutator> {
         for attribute in &function.attrs {
-            match attribute_name_to_bytes(attribute) {
-                Some(b"setup") => {
+            match attribute_name_to_str(attribute).as_str() {
+                TestSuite::SETUP_IDENT => {
                     return Some(
                         SuiteMutator::Setup(ArgSetup(take(&mut function.block.stmts)))
                     );
                 },
-                Some(b"teardown") => {
+                TestSuite::TEARDOWN_IDENT => {
                     return Some(
                         SuiteMutator::Teardown(ArgTeardown(take(&mut function.block.stmts)))
                     );
@@ -149,6 +151,11 @@ impl ToTokens for TestSuite {
     }
 }
 
+impl TestSuite {
+    pub const SETUP_IDENT: &'static str = "setup";
+    pub const TEARDOWN_IDENT: &'static str = "teardown";
+}
+
 pub fn render_test_suite(mut test_suite: TestSuite) -> TokenStream {
     let Option::Some(mut contents) = take(&mut test_suite.contents) else {
         return test_suite.to_token_stream();
@@ -181,6 +188,10 @@ fn render_mod_name(test_suite: &TestSuite, tokens: &mut TokenStream) {
 
 fn is_test_attribute(attributes: &[Attribute]) -> bool {
     attributes.iter()
-        .filter_map(attribute_name_to_bytes)
-        .any(| attr | attr == b"test" || attr == b"test_case")
+        .map(attribute_name_to_str)
+        .any(| name | {
+            name.as_str() == TestCase::SITH_TEST_IDENT ||
+            name.as_str() == TestCase::RUSTC_TEST_IDENT ||
+            name.as_str() == TestCase::WASM_TEST_IDENT
+        })
 }

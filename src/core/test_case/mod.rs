@@ -6,7 +6,7 @@ use super::{
 use crate::common::{
     parse_next_tt,
     parse_group_with_delim, 
-    attribute_name_to_bytes,
+    attribute_name_to_str,
     macros::unwrap_or_err
 };
 use proc_macro2::{
@@ -105,6 +105,12 @@ impl Parse for TestCase {
     }
 }
 
+impl TestCase {
+    pub const SITH_TEST_IDENT: &'static str = "test_case";
+    pub const RUSTC_TEST_IDENT: &'static str = "test";
+    pub const WASM_TEST_IDENT: &'static str = "wasm_bindgen_test";
+}
+
 impl_to_tokens_arg!(TestCase, iterable(0));
 
 fn parse_arg_parameterized<T: Parse>(input: ParseStream) -> Result<T> {
@@ -119,7 +125,7 @@ pub fn render_test_case(test_case_: TestCase, mut target: ItemFn) -> TokenStream
     // Search for other test case attributes, plucking such from the fn def if present
     let mut removed_elements: usize = 0;
     for i in 0..target.attrs.len() {
-        if attribute_name_to_bytes(&target.attrs[i - removed_elements]) != Some(b"test_case") {
+        if attribute_name_to_str(&target.attrs[i - removed_elements]).as_str() != TestCase::SITH_TEST_IDENT {
             continue;
         }
 

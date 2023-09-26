@@ -9,9 +9,9 @@ use syn::{
     }
 };
 
-pub fn attribute_name_to_bytes<'c>(attr: &Attribute) -> Option<&'c [u8]> {
+pub fn attribute_name_to_str(attr: &Attribute) -> String {
     let segments = attr.meta.path().segments.iter().rev();
-    segments.last().map(| segment | steal(segment.ident.to_string().as_bytes()))
+    segments.last().map_or(String::default(), | segment | segment.ident.to_string())
 }
 
 pub fn parse_group_with_delim(delim: Delimiter, input: ParseStream) -> Result<TokenStream> {
@@ -50,13 +50,6 @@ pub fn parse_next_tt(input: ParseStream) -> Result<TokenTree> {
     input.step(| cursor | {
         cursor.token_tree().ok_or(input.error("expected token"))
     })
-}
-
-#[inline]
-pub fn steal<'c, T: ?Sized>(item: &T) -> &'c T {
-    unsafe {
-        core::mem::transmute::<&T, &'c T>(item)
-    }
 }
 
 #[macro_use]
@@ -106,25 +99,7 @@ pub(crate) mod tests {
         quote, ToTokens
     };
 
-    #[test]
-    fn steal_str() {
-        let foo: &str = "foo";
-        {
-            let bar = steal(foo);
-            assert_eq!(bar, "foo");
-        } 
-    }
-
-    #[test]
-    fn steal_bytes() {
-        let foo: &[u8] = b"foo";
-        {
-            let bar = steal(foo);
-            assert_eq!(bar, b"foo");
-        } 
-    }
-
-    mod attribute_name_to_bytes {
+    mod attribute_name_to_str {
         use super::*;
 
         use syn::{
@@ -139,7 +114,7 @@ pub(crate) mod tests {
                 Meta::Path(Path{ leading_colon: None, segments: Punctuated::new() })
             );
 
-            assert_eq!(attribute_name_to_bytes(&attr), None);
+            assert_eq!(attribute_name_to_str(&attr).as_str(), "");
         }
 
         #[test]
@@ -149,11 +124,7 @@ pub(crate) mod tests {
                 construct_attribute_meta!(test)
             );
 
-            println!("{:?}", attribute_name_to_bytes(&attr).unwrap());
-            println!("{:?}", syn::Ident::new("test", Span::call_site()).to_string().as_bytes());
-            println!("{:?}", "test");
-            println!("{:?}", steal("test"));
-            //, Some("test".as_bytes()));
+            assert_eq!(attribute_name_to_str(&attr).as_str(), "test");
         }
     }
 
