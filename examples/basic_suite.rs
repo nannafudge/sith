@@ -1,3 +1,5 @@
+#![no_main]
+
 use sith::test_suite;
 
 #[test_suite]
@@ -61,5 +63,3 @@ mod other_suite {
         assert_eq!(my_struct.0, 0);
     }
 }
-
-fn main() {}

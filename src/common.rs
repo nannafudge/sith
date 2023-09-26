@@ -9,7 +9,7 @@ use syn::{
     }
 };
 
-pub fn attribute_name_to_str(attr: &Attribute) -> String {
+pub fn attribute_name_to_string(attr: &Attribute) -> String {
     let segments = attr.meta.path().segments.iter().rev();
     segments.last().map_or(String::default(), | segment | segment.ident.to_string())
 }
@@ -99,7 +99,7 @@ pub(crate) mod tests {
         quote, ToTokens
     };
 
-    mod attribute_name_to_str {
+    mod attribute_name_to_string {
         use super::*;
 
         use syn::{
@@ -114,7 +114,7 @@ pub(crate) mod tests {
                 Meta::Path(Path{ leading_colon: None, segments: Punctuated::new() })
             );
 
-            assert_eq!(attribute_name_to_str(&attr).as_str(), "");
+            assert_eq!(attribute_name_to_string(&attr).as_str(), "");
         }
 
         #[test]
@@ -124,7 +124,7 @@ pub(crate) mod tests {
                 construct_attribute_meta!(test)
             );
 
-            assert_eq!(attribute_name_to_str(&attr).as_str(), "test");
+            assert_eq!(attribute_name_to_string(&attr).as_str(), "test");
         }
     }
 

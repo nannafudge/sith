@@ -35,7 +35,7 @@ impl Mutate for ArgName {
     fn mutate(&self, target: &mut Self::Item) -> Result<()> {
         target.ident = format_ident!("{}_{}", target.ident, self.0);
 
-        return Ok(());
+        Ok(())
     }
 }
 

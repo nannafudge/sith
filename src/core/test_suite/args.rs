@@ -18,7 +18,7 @@ impl Mutate for ArgSetup {
             target.stmts.insert(0, stmt.clone());
         }
 
-        return Ok(());
+        Ok(())
     }
 }
 
@@ -34,7 +34,7 @@ impl Mutate for ArgTeardown {
     fn mutate(&self, target: &mut Self::Item) -> Result<()> {
         target.stmts.extend(self.0.clone());
 
-        return Ok(());
+        Ok(())
     }
 }
 

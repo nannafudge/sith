@@ -6,7 +6,7 @@ use super::{
 use crate::common::{
     parse_next_tt,
     parse_group_with_delim, 
-    attribute_name_to_str,
+    attribute_name_to_string,
     macros::unwrap_or_err
 };
 use proc_macro2::{
@@ -125,7 +125,7 @@ pub fn render_test_case(test_case_: TestCase, mut target: ItemFn) -> TokenStream
     // Search for other test case attributes, plucking such from the fn def if present
     let mut removed_elements: usize = 0;
     for i in 0..target.attrs.len() {
-        if attribute_name_to_str(&target.attrs[i - removed_elements]).as_str() != TestCase::SITH_TEST_IDENT {
+        if attribute_name_to_string(&target.attrs[i - removed_elements]).as_str() != TestCase::SITH_TEST_IDENT {
             continue;
         }
 

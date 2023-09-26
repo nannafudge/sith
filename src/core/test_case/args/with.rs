@@ -95,7 +95,7 @@ impl Mutate for WithAssignment {
         quote::quote!(let #def: #ty = #self;).to_tokens(&mut tokens);
 
         target.block.stmts.insert(0, syn::parse2::<Stmt>(tokens)?);
-        return Ok(());
+        Ok(())
     }
 }
 
@@ -117,11 +117,11 @@ impl Parse for WithExpr {
 
         match name.to_string().as_bytes() {
             b"verbatim" => {
-                return Ok(WithExpr::Verbatim(input.parse::<WithVerbatim>()?));
+                Ok(WithExpr::Verbatim(input.parse::<WithVerbatim>()?))
             },
             _ => {
                 // Might be Union/Struct Tuple/Enum Variant - attempt to parse
-                return Ok(WithExpr::Assignment(input.parse::<WithAssignment>()?));
+                Ok(WithExpr::Assignment(input.parse::<WithAssignment>()?))
             }
         }
     }
@@ -194,14 +194,14 @@ impl Mutate for ArgWith {
             mutator.mutate(target)?;
         }
 
-        return Ok(());
+        Ok(())
     }
 }
 
 impl_unique_arg!(ArgWith);
 impl_to_tokens_arg!(ArgWith, iterable(0));
 
-fn recursive_descent_replace<'a>(input: &mut Cursor<'a>, pattern: &Ident, substitute: &TokenStream) -> TokenStream {
+fn recursive_descent_replace(input: &mut Cursor, pattern: &Ident, substitute: &TokenStream) -> TokenStream {
     let mut out = TokenStream::new();
     while let Some((tt, next)) = input.token_tree() {
         match tt {
@@ -227,14 +227,14 @@ fn recursive_descent_replace<'a>(input: &mut Cursor<'a>, pattern: &Ident, substi
     out
 }
 
-fn parse_fn_param<'c>(fn_param: Option<&'c mut Pair<FnArg, Comma>>) -> Result<(&mut [Attribute], &mut Pat, &mut Type)> {
+fn parse_fn_param(fn_param: Option<&mut Pair<FnArg, Comma>>) -> Result<(&mut [Attribute], &mut Pat, &mut Type)> {
     match fn_param {
         Some(Pair::Punctuated(param, _)) | Some(Pair::End(param)) => {
             if let FnArg::Typed(typed) = param {
                 return Ok((typed.attrs.as_mut_slice(), &mut *typed.pat, &mut *typed.ty));
             }
 
-            return Err(error_spanned!("invalid parameter", &param));
+            Err(error_spanned!("invalid parameter", &param))
         },
         _ => {
             Err(error_spanned!("no corresponding input", &fn_param))

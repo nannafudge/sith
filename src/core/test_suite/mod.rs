@@ -1,4 +1,4 @@
-use crate::common::attribute_name_to_str;
+use crate::common::attribute_name_to_string;
 use super::{
     InsertUnique,
     Mutate, Mutators,
@@ -56,7 +56,7 @@ impl ToTokens for SuiteMutator {
 impl SuiteMutator {
     fn new_from(function: &mut ItemFn) -> Option<SuiteMutator> {
         for attribute in &function.attrs {
-            match attribute_name_to_str(attribute).as_str() {
+            match attribute_name_to_string(attribute).as_str() {
                 TestSuite::SETUP_IDENT => {
                     return Some(
                         SuiteMutator::Setup(ArgSetup(take(&mut function.block.stmts)))
@@ -140,7 +140,7 @@ impl Parse for TestSuite {
 
 impl ToTokens for TestSuite {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        render_mod_name(&self, tokens);
+        render_mod_name(self, tokens);
 
         let braced: Brace = Brace::default();
         braced.surround(tokens, | suite_inner |{
@@ -178,7 +178,7 @@ pub fn render_test_suite(mut test_suite: TestSuite) -> TokenStream {
         }
     });
 
-    suite_out.into()
+    suite_out
 }
 
 fn render_mod_name(test_suite: &TestSuite, tokens: &mut TokenStream) {
@@ -188,7 +188,7 @@ fn render_mod_name(test_suite: &TestSuite, tokens: &mut TokenStream) {
 
 fn is_test_attribute(attributes: &[Attribute]) -> bool {
     attributes.iter()
-        .map(attribute_name_to_str)
+        .map(attribute_name_to_string)
         .any(| name | {
             name.as_str() == TestCase::SITH_TEST_IDENT ||
             name.as_str() == TestCase::RUSTC_TEST_IDENT ||

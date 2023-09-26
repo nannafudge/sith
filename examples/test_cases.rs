@@ -1,3 +1,5 @@
+#![no_main]
+
 use sith::test_case;
 
 #[test_case]
@@ -32,5 +34,3 @@ fn ultimate_power(r#formatter: _, r#my_arg: _) {
 fn ultimate_power(vec: Vec<usize>, r#my_arg: _) {
     println!("{}", vec.r#my_arg());
 }
-
-fn main() {}
