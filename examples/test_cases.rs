@@ -28,7 +28,4 @@ fn ultimate_power(r#formatter: _, r#my_arg: _) {
     println!(r#formatter, <r#my_arg>::default());
 }
 
-#[test_case(with(Vec::new(), verbatim({println!("arbitrary code!")})))]
-fn ultimate_power(vec: Vec<usize>, r#my_arg: _) {
-    println!("{}", vec.r#my_arg());
-}
+pub fn main() {}

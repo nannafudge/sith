@@ -61,3 +61,5 @@ mod other_suite {
         assert_eq!(my_struct.0, 0);
     }
 }
+
+pub fn main() {}
