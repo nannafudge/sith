@@ -1,5 +1,3 @@
-#![no_main]
-
 use sith::test_suite;
 
 #[test_suite]

@@ -1,5 +1,3 @@
-#![no_main]
-
 use sith::test_case;
 
 #[test_case]
