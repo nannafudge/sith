@@ -16,8 +16,8 @@ pub(crate) mod setup;
 pub(crate) mod teardown;
 
 pub(crate) fn parse_param_args<T: Parse>(input: ParseStream) -> Result<T> {
-    let arg_inner: TokenStream = parse_group_with_delim(Delimiter::Parenthesis, input)?;
-    syn::parse2::<T>(arg_inner)
+    let param_inner: TokenStream = parse_group_with_delim(Delimiter::Parenthesis, input)?;
+    syn::parse2::<T>(param_inner)
 }
 
 #[macro_use]

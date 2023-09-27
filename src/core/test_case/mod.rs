@@ -42,8 +42,8 @@ impl Mutate for TestMutator {
 
     fn mutate(&self, target: &mut Self::Item) -> Result<()> {
         match self {
-            TestMutator::ParamWith(arg) => arg.mutate(target),
-            TestMutator::ParamName(arg) => arg.mutate(&mut target.sig)
+            TestMutator::ParamWith(param) => param.mutate(target),
+            TestMutator::ParamName(param) => param.mutate(&mut target.sig)
         }
     }
 }
@@ -51,8 +51,8 @@ impl Mutate for TestMutator {
 impl ToTokens for TestMutator {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         match self {
-            TestMutator::ParamWith(arg) => arg.to_tokens(tokens),
-            TestMutator::ParamName(arg) => arg.to_tokens(tokens)
+            TestMutator::ParamWith(param) => param.to_tokens(tokens),
+            TestMutator::ParamName(param) => param.to_tokens(tokens)
         };
     }
 }

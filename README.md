@@ -57,7 +57,7 @@ test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 
 ### Parameterized Tests with `#[test_case]`
 
-Sith also supports parameterization of `#[test_case]` via ***`arguments`***. Currently, the following arguments are provided:
+Sith also supports parameterization of `#[test_case]`s. Currently, the following parameters are provided:
 
 ### `#[test_case(`**`name...`**`)]`:
 
@@ -87,10 +87,10 @@ test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 
 ***Positionally binds a test input to a value***
 
-Using `with()`, one can pass in instantiated types on a test-by-test basis, allowing different tests to be ran with different inputs. `with()` currently supports two input forms or ***`subarguments`***:
+Using `with()`, one can pass in instantiated types on a test-by-test basis, allowing different tests to be ran with different inputs. `with()` currently supports two forms of `arguments`:
 
-- **`with(...)`** - Values unrecognized as sub-arguments (non-keywords) are by default interpreted as an instance of a `type` and passed in as such **(default)**
-- **`with(vertabim(...))`**  - Values within a `verbatim()` sub-argument are *uninterpreted*: Tokens within are output to the syntax tree **uninterpreted**. This allows passing in of **arbitrary input**, and thus, arbitrary parameterization of tests
+- **`with(...)`** - Non-keyword arguments are by default interpreted as an instance of a `type` and passed in as such **(default)**
+- **`with(vertabim(...))`**  - The `verbatim()` sub-parameter provides encapsulated input in an *uninterpreted* form: Tokens within are output to the syntax tree as **raw tokens**, leaving interpretation up to the compiler. This allows passing in of **arbitrary input**, and thus, arbitrary parameterization of tests
 
 #### Simple value-binding [`with(...)`]
 
@@ -116,7 +116,7 @@ test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 
 ##### NOTE: Positional Binding
 
-Binding of inputs to function args is done in order of their definition, so make sure that checks out!
+Binding of inputs to function parameters is done in order of their definition, so make sure that checks out!
 
 ```rust
 #[test_case(that_will_break_again, with("one is:", 1))]
@@ -150,7 +150,7 @@ error[E0308]: mismatched types
 
 ##### Ducking Types
 
-Binding is *type-sensitive* - that is, the annotated type on the corresponding test function arg **must** match that of the value in `with()`:
+Binding is *type-sensitive* - that is, the annotated type on the corresponding test function argument **must** match that of the value in `with()`:
 
 ```rust
 // Attempting to pass in &str as &usize...
