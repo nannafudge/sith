@@ -1,5 +1,7 @@
 # Sith
 
+[![MIT license](https://img.shields.io/badge/License-MIT-blue.svg)](https://lbesson.mit-license.org/) [![CI Status](https://github.com/nannafudge/sith/actions/workflows/build.yml/badge.svg)](https://github.com/nannafudge/sith/actions/workflows/build.yml) ![Coverage](https://gist.githubusercontent.com/nannafudge/c0fce53596a6680a26c47b53440564d9/raw/coverage.svg)
+
 > **S**imple **I**njectible **T**est **H**arness
 
 Minimal-dependency test harness framework via. simple (definitely unhygenic) AST injection, featuring:

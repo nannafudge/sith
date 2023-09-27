@@ -1,8 +1,6 @@
-name: Rust
+name: Check
 
 on:
-  push:
-    branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
 
@@ -10,15 +8,16 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
-
+  assurance:
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v3
+    - name: Ensure Stable Toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        override: true
     - name: Lint
       run: cargo clippy
-    - name: Build
-      run: cargo build --verbose
-    - name: Run tests
-      run: cargo test --verbose
+    - name: Tests
+      run: cargo test

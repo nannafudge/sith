@@ -1,0 +1,50 @@
+name: Build
+
+on:
+  push:
+    branches: [ "main" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-node@v3
+    - name: Ensure Stable Toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        override: true
+    - name: Test with Coverage
+      uses: actions-rs/tarpaulin@v0.1
+      with:
+        version: '0.18.1'
+        out-type: lcov
+    - name: Parse Coverage Total
+      id: cov_gen
+      run: >
+        npm install lcov-total &&
+        echo coverage=$(npx lcov-total ${{ github.workspace }}/lcov.info) >> "$GITHUB_OUTPUT"
+    - name: Create Coverage Badge
+      run: >
+        npm install badge-maker &&
+        npx badge coverage "${{ steps.cov_gen.outputs.coverage }}%"
+        ${{ steps.cov_gen.outputs.coverage < 25 && 'red' || 
+            steps.cov_gen.outputs.coverage < 50 && 'orange' ||
+            steps.cov_gen.outputs.coverage < 75 && 'yellow' ||
+            'green' }} >> ${{ github.workspace }}/coverage.svg
+    - name: Upload Coverage Badge
+      uses: exuanbo/actions-deploy-gist@v1
+      with:
+        token: ${{ secrets.GIST_TOKEN }}
+        gist_id: c0fce53596a6680a26c47b53440564d9
+        file_path: coverage.svg
+        file_type: text
+    - name: Upload Test Artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-results
+        path: ${{ github.workspace }}/lcov.info
