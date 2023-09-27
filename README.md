@@ -57,11 +57,19 @@ test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 
 ### Parameterized Tests with `#[test_case]`
 
-Sith also supports parameterization of `#[test_case]`s. Currently, the following parameters are provided:
+Sith also supports parameterization of `#[test_case]`s. Currently, the following ***parameters*** are recognized:
+
+|  Parameter  |                         Description                         |
+| ----------- | ----------------------------------------------------------- |
+| `name`      | *Appends **`name...`** to the test function definition* |
+| `with(...)` |             *Provides input to test_cases*              |
 
 ### `#[test_case(`**`name...`**`)]`:
 
 ***Appends **`name...`** to the test function definition***
+
+###### *sub-parameters:*
+*None*
 
 ```rust
 #[test_case(one)]
@@ -87,10 +95,12 @@ test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 
 ***Positionally binds a test input to a value***
 
-Using `with()`, one can pass in instantiated types on a test-by-test basis, allowing different tests to be ran with different inputs. `with()` currently supports two forms of `arguments`:
+###### *sub-parameters:*
+|    Parameter    |                                           Description                                               |
+| --------------- | --------------------------------------------------------------------------------------------------  |
+| `verbatim(...)` |  ***Encapsulates its input in an *uninterpreted* form, leaving interpretation up to the compiler*** |
 
-- **`with(...)`** - Non-keyword arguments are by default interpreted as an instance of a `type` and passed in as such **(default)**
-- **`with(vertabim(...))`**  - The `verbatim()` sub-parameter provides encapsulated input in an *uninterpreted* form: Tokens within are output to the syntax tree as **raw tokens**, leaving interpretation up to the compiler. This allows passing in of **arbitrary input**, and thus, arbitrary parameterization of tests
+Inputs can be provided to `#[test_case]` definitions using `with()`: a ***sub-parameter*** of `#[test_case]`. `with()` currently recognizes two **sub-parameters**:
 
 #### Simple value-binding [`with(...)`]
 
@@ -150,7 +160,7 @@ error[E0308]: mismatched types
 
 ##### Ducking Types
 
-Binding is *type-sensitive* - that is, the annotated type on the corresponding test function argument **must** match that of the value in `with()`:
+Binding is *type-sensitive* - that is, the annotated type on the corresponding test function input **must** match that of the value in `with()`:
 
 ```rust
 // Attempting to pass in &str as &usize...
@@ -195,6 +205,8 @@ test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 ```
 
 #### Arbitrary value-binding [`with(vertabim(...))`]
+
+***The `verbatim()` sub-parameter encapsulates its input in an *uninterpreted* form:*** Tokens within are output to the syntax tree as **raw tokens**, leaving interpretation up to the compiler. This allows passing in of **arbitrary input**, and thus, arbitrary parameterization of tests
 
 Using `vertabim()`, one may (truly) harness **unlimited power**:
 
