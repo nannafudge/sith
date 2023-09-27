@@ -11,7 +11,7 @@ use crate::params::{
     Mutate, macros::*
 };
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub(crate) struct ParamName(pub Ident);
 
 impl Parse for ParamName {
@@ -36,3 +36,41 @@ impl Mutate for ParamName {
 
 impl_unique_param!(ParamName);
 impl_to_tokens_param!(ParamName, 0);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::common::{
+        macros::error_spanned,
+        tests::macros::*
+    };
+
+    use proc_macro2::Span;
+    use quote::{
+        quote, ToTokens
+    };
+
+    #[test]
+    fn parse_name_ident() {
+        assert_eq_parsed!(
+            syn::parse2::<ParamName>(quote!(test)),
+            Ok(ParamName(syn::Ident::new("test", Span::call_site())))
+        );
+    }
+
+    #[test]
+    fn parse_name_type() {
+        assert_eq_parsed!(
+            syn::parse2::<ParamName>(quote!(usize)),
+            Ok(ParamName(syn::Ident::new("usize", Span::call_site())))
+        );
+    }
+
+    #[test]
+    fn parse_name_non_ident() {
+        assert_eq_parsed!(
+            syn::parse2::<ParamName>(quote!((group))),
+            Err(error_spanned!("expected test name"))
+        );
+    }
+}

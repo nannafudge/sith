@@ -232,7 +232,7 @@ pub(crate) mod tests {
         fn single() {
             impl_parse_shim!(CommaSeperated, CommaSeperated::parse);
 
-            assert_eq_with_shim!(
+            assert_eq_parsed!(
                 syn::parse2::<ParseShim<CommaSeperated>>(quote!("foo")),
                 Ok(CommaSeperated::new(Vec::from([Literal::string("foo")])))
             );
@@ -242,7 +242,7 @@ pub(crate) mod tests {
         fn many() {
             impl_parse_shim!(CommaSeperated, CommaSeperated::parse);
 
-            assert_eq_with_shim!(
+            assert_eq_parsed!(
                 syn::parse2::<ParseShim<CommaSeperated>>(quote!("foo", "bar")),
                 Ok(CommaSeperated::new(Vec::from([Literal::string("foo"), Literal::string("bar")])))
             );
@@ -252,7 +252,7 @@ pub(crate) mod tests {
         fn arbitrary_delims() {
             impl_parse_shim!(GroupSeperated, GroupSeperated::parse);
 
-            assert_eq_with_shim!(
+            assert_eq_parsed!(
                 syn::parse2::<ParseShim<GroupSeperated>>(quote!("foo" (123, 456) "bar" (789))),
                 Ok(GroupSeperated::new(Vec::from([Literal::string("foo"), Literal::string("bar")])))
             );
@@ -274,7 +274,7 @@ pub(crate) mod tests {
         #[test]
         fn empty() {
             impl_parse_shim!(CommaSeperated, CommaSeperated::parse);
-            assert_eq_with_shim!(
+            assert_eq_parsed!(
                 syn::parse2::<ParseShim<CommaSeperated>>(quote!()),
                 Ok(CommaSeperated::new(Vec::new()))
             );
@@ -302,7 +302,7 @@ pub(crate) mod tests {
         fn parenthesis() {
             impl_parse_shim!(TokenStream, parse_parenthesis_shim);
 
-            assert_eq_with_shim!(
+            assert_eq_parsed!(
                 syn::parse2::<ParseShim<TokenStream>>(quote!((test, 123))),
                 Ok(quote!(test, 123))
             );
@@ -312,7 +312,7 @@ pub(crate) mod tests {
         fn parenthesis_invalid() {
             impl_parse_shim!(TokenStream, parse_parenthesis_shim);
 
-            assert_eq_with_shim!(
+            assert_eq_parsed!(
                 syn::parse2::<ParseShim<TokenStream>>(quote!([test, 123])),
                 Err(error_spanned!("expected '()'"))
             );
@@ -322,7 +322,7 @@ pub(crate) mod tests {
         fn braces() {
             impl_parse_shim!(TokenStream, parse_braces_shim);
 
-            assert_eq_with_shim!(
+            assert_eq_parsed!(
                 syn::parse2::<ParseShim<TokenStream>>(quote!({test, 123})),
                 Ok(quote!(test, 123))
             );
@@ -332,7 +332,7 @@ pub(crate) mod tests {
         fn braces_invalid() {
             impl_parse_shim!(TokenStream, parse_braces_shim);
 
-            assert_eq_with_shim!(
+            assert_eq_parsed!(
                 syn::parse2::<ParseShim<TokenStream>>(quote!([test, 123])),
                 Err(error_spanned!("expected '{}'"))
             );
@@ -342,7 +342,7 @@ pub(crate) mod tests {
         fn bracket() {
             impl_parse_shim!(TokenStream, parse_bracket_shim);
 
-            assert_eq_with_shim!(
+            assert_eq_parsed!(
                 syn::parse2::<ParseShim<TokenStream>>(quote!([test, 123])),
                 Ok(quote!(test, 123))
             );
@@ -352,7 +352,7 @@ pub(crate) mod tests {
         fn bracket_invalid() {
             impl_parse_shim!(TokenStream, parse_bracket_shim);
 
-            assert_eq_with_shim!(
+            assert_eq_parsed!(
                 syn::parse2::<ParseShim<TokenStream>>(quote!({test, 123})),
                 Err(error_spanned!("expected '[]'"))
             );
@@ -380,7 +380,7 @@ pub(crate) mod tests {
     
         #[test]
         fn group() {
-            assert_eq_with_shim!(
+            assert_eq_parsed!(
                 syn::parse2::<ParseShim<TokenTree>>(quote!((inner))),
                 Ok(Group::new(Delimiter::Parenthesis, quote!(inner)))
             );
@@ -388,7 +388,7 @@ pub(crate) mod tests {
 
         #[test]
         fn ident() {
-            assert_eq_with_shim!(
+            assert_eq_parsed!(
                 syn::parse2::<ParseShim<TokenTree>>(quote!(test)),
                 Ok(Ident::new("test", Span::call_site()))
             );
@@ -396,7 +396,7 @@ pub(crate) mod tests {
 
         #[test]
         fn punct() {
-            assert_eq_with_shim!(
+            assert_eq_parsed!(
                 syn::parse2::<ParseShim<TokenTree>>(quote!(,)),
                 Ok(Punct::new(',', Spacing::Alone))
             );
@@ -404,7 +404,7 @@ pub(crate) mod tests {
 
         #[test]
         fn literal() {
-            assert_eq_with_shim!(
+            assert_eq_parsed!(
                 syn::parse2::<ParseShim<TokenTree>>(quote!("test")),
                 Ok(Literal::string("test"))
             );
@@ -452,7 +452,7 @@ pub(crate) mod tests {
 
         #[test]
         fn group() {
-            assert_eq_with_shim!(
+            assert_eq_parsed!(
                 syn::parse2::<ParseShim<TokenTree>>(quote!((inner))),
                 Ok(Group::new(Delimiter::Parenthesis, quote!(inner)))
             );
@@ -460,7 +460,7 @@ pub(crate) mod tests {
 
         #[test]
         fn ident() {
-            assert_eq_with_shim!(
+            assert_eq_parsed!(
                 syn::parse2::<ParseShim<TokenTree>>(quote!(test)),
                 Ok(Ident::new("test", Span::call_site()))
             );
@@ -468,7 +468,7 @@ pub(crate) mod tests {
 
         #[test]
         fn punct() {
-            assert_eq_with_shim!(
+            assert_eq_parsed!(
                 syn::parse2::<ParseShim<TokenTree>>(quote!(,)),
                 Ok(Punct::new(',', Spacing::Alone))
             );
@@ -476,7 +476,7 @@ pub(crate) mod tests {
 
         #[test]
         fn literal() {
-            assert_eq_with_shim!(
+            assert_eq_parsed!(
                 syn::parse2::<ParseShim<TokenTree>>(quote!("test")),
                 Ok(Literal::string("test"))
             );
@@ -501,24 +501,8 @@ pub(crate) mod tests {
                 }
             };
         }
-    
-        macro_rules! assert_eq_with_shim {
-            ($left:expr, Ok($right:expr)) => {
-                match &$left {
-                    Ok(left) if left.0.to_token_stream().to_string().eq(&$right.to_token_stream().to_string()) => {},
-                    _ => panic!("assertion failed:\nleft: {:?}\nright:{:?}", &$left, &$right)
-                };
-            };
-            ($left:expr, Err($right:expr)) => {
-                match &$left {
-                    Err(left) if left.to_compile_error().to_string().eq(&$right.to_compile_error().to_string()) => {},
-                    _ => panic!("assertion failed:\nleft: {:?}\nright:{:?}", &$left, &$right)
-                };
-            };
-        }
 
         pub(crate) use impl_parse_shim;
-        pub(crate) use assert_eq_with_shim;
     }
 
     pub(crate) mod macros {
@@ -539,6 +523,22 @@ pub(crate) mod tests {
             };
         }
 
+        macro_rules! assert_eq_parsed {
+            ($left:expr, Ok($right:expr)) => {
+                match &$left {
+                    Ok(left) if left.0.to_token_stream().to_string().eq(&$right.to_token_stream().to_string()) => {},
+                    _ => panic!("assertion failed:\nleft: {:?}\nright:{:?}", &$left, &$right)
+                };
+            };
+            ($left:expr, Err($right:expr)) => {
+                match &$left {
+                    Err(left) if left.to_compile_error().to_string().eq(&$right.to_compile_error().to_string()) => {},
+                    _ => panic!("assertion failed:\nleft: {:?}\nright:{:?}", &$left, &$right)
+                };
+            };
+        }
+
+        pub(crate) use assert_eq_parsed;
         pub(crate) use construct_attribute;
         pub(crate) use construct_attribute_meta;
     }
