@@ -1,8 +1,8 @@
-use crate::common::attribute_name_to_string;
-use super::{
-    InsertUnique,
-    Mutate, Mutators,
-    TestCase, macros::*
+use core::mem::take;
+use proc_macro2::TokenStream;
+
+use quote::{
+    ToTokens, TokenStreamExt
 };
 use syn::{
     Attribute,
@@ -15,22 +15,23 @@ use syn::{
         Mod, Brace
     }
 };
-use quote::{
-    ToTokens, TokenStreamExt
+use crate::{
+    core::{
+        Mutate, Mutators,
+        InsertUnique, TestCase
+    },
+    params::{
+        setup::*, teardown::*
+    },
+    common::attribute_name_to_string
 };
-use proc_macro2::TokenStream;
-
-use core::mem::take;
-
-mod args;
-use args::*;
 
 #[repr(u8)]
 #[derive(Clone, PartialEq, PartialOrd, Eq, Ord)]
 enum SuiteMutator {
     // Mutators should be defined in the order they must apply
-    Setup(ArgSetup),
-    Teardown(ArgTeardown)
+    Setup(ParamSetup),
+    Teardown(ParamTeardown)
 }
 
 impl Mutate for SuiteMutator {
@@ -38,8 +39,8 @@ impl Mutate for SuiteMutator {
 
     fn mutate(&self, target: &mut Self::Item) -> Result<()> {
         match self {
-            SuiteMutator::Setup(arg) => arg.mutate(&mut target.block),
-            SuiteMutator::Teardown(arg) => arg.mutate(&mut target.block)
+            SuiteMutator::Setup(param) => param.mutate(&mut target.block),
+            SuiteMutator::Teardown(param) => param.mutate(&mut target.block)
         }
     }
 }
@@ -47,8 +48,8 @@ impl Mutate for SuiteMutator {
 impl ToTokens for SuiteMutator {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         match self {
-            SuiteMutator::Setup(arg) => arg.to_tokens(tokens),
-            SuiteMutator::Teardown(arg) => arg.to_tokens(tokens)
+            SuiteMutator::Setup(param) => param.to_tokens(tokens),
+            SuiteMutator::Teardown(param) => param.to_tokens(tokens)
         };
     }
 }
@@ -59,12 +60,12 @@ impl SuiteMutator {
             match attribute_name_to_string(attribute).as_str() {
                 TestSuite::SETUP_IDENT => {
                     return Some(
-                        SuiteMutator::Setup(ArgSetup(take(&mut function.block.stmts)))
+                        SuiteMutator::Setup(ParamSetup(take(&mut function.block.stmts)))
                     );
                 },
                 TestSuite::TEARDOWN_IDENT => {
                     return Some(
-                        SuiteMutator::Teardown(ArgTeardown(take(&mut function.block.stmts)))
+                        SuiteMutator::Teardown(ParamTeardown(take(&mut function.block.stmts)))
                     );
                 },
                 _ => {}

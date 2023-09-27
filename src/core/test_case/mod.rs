@@ -1,16 +1,6 @@
-use super::{
-    InsertUnique,
-    Mutate, Mutators,
-    macros::*
-};
-use crate::common::{
-    parse_next_tt,
-    parse_group_with_delim, 
-    attribute_name_to_string,
-    macros::unwrap_or_err
-};
+use quote::ToTokens;
+
 use proc_macro2::{
-    Delimiter, 
     TokenStream, TokenTree
 };
 use syn::{
@@ -21,18 +11,30 @@ use syn::{
     },
     spanned::Spanned
 };
-
-use quote::ToTokens;
-
-mod args;
-use args::*;
+use crate::{
+    common::{
+        macros::unwrap_or_err,
+        attribute_name_to_string,
+        parse_next_tt
+    },
+    core::{
+        Mutate, Mutators,
+        InsertUnique,
+        macros::*
+    },
+    params::{
+        macros::impl_to_tokens_param,
+        parse_param_args,
+        name::*, with::*
+    }
+};
 
 #[repr(u8)]
 #[derive(Clone, PartialEq, PartialOrd, Eq, Ord)]
 enum TestMutator {
     // Mutators should be defined in the order they must apply
-    ArgName(ArgName),
-    ArgWith(ArgWith)
+    ParamName(ParamName),
+    ParamWith(ParamWith)
 }
 
 impl Mutate for TestMutator {
@@ -40,8 +42,8 @@ impl Mutate for TestMutator {
 
     fn mutate(&self, target: &mut Self::Item) -> Result<()> {
         match self {
-            TestMutator::ArgWith(arg) => arg.mutate(target),
-            TestMutator::ArgName(arg) => arg.mutate(&mut target.sig)
+            TestMutator::ParamWith(arg) => arg.mutate(target),
+            TestMutator::ParamName(arg) => arg.mutate(&mut target.sig)
         }
     }
 }
@@ -49,8 +51,8 @@ impl Mutate for TestMutator {
 impl ToTokens for TestMutator {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         match self {
-            TestMutator::ArgWith(arg) => arg.to_tokens(tokens),
-            TestMutator::ArgName(arg) => arg.to_tokens(tokens)
+            TestMutator::ParamWith(arg) => arg.to_tokens(tokens),
+            TestMutator::ParamName(arg) => arg.to_tokens(tokens)
         };
     }
 }
@@ -63,11 +65,11 @@ impl Parse for TestMutator {
 
         match name.to_string().as_bytes() {
             b"with" => {
-                Ok(TestMutator::ArgWith(parse_arg_parameterized(input)?))
+                Ok(TestMutator::ParamWith(parse_param_args(input)?))
             },
             _ => {
                 // Assume the ident is the test name
-                Ok(TestMutator::ArgName(ArgName(name)))
+                Ok(TestMutator::ParamName(ParamName(name)))
             }
         }
     }
@@ -111,12 +113,7 @@ impl TestCase {
     pub const WASM_TEST_IDENT: &'static str = "wasm_bindgen_test";
 }
 
-impl_to_tokens_arg!(TestCase, iterable(0));
-
-fn parse_arg_parameterized<T: Parse>(input: ParseStream) -> Result<T> {
-    let arg_inner: TokenStream = parse_group_with_delim(Delimiter::Parenthesis, input)?;
-    syn::parse2::<T>(arg_inner)
-}
+impl_to_tokens_param!(TestCase, iterable(0));
 
 pub fn render_test_case(test_case_: TestCase, mut target: ItemFn) -> TokenStream {
     let mut out: TokenStream = TokenStream::new();

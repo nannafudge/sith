@@ -1,8 +1,5 @@
-use super::{
-    Mutate,
-    impl_unique_arg,
-    impl_to_tokens_arg
-};
+use quote::format_ident;
+
 use syn::{
     Result,
     Ident, Signature,
@@ -10,16 +7,14 @@ use syn::{
         Parse, ParseStream
     }
 };
-
-use quote::format_ident;
-
-mod with;
-pub(crate) use with::*;
+use crate::params::{
+    Mutate, macros::*
+};
 
 #[derive(Clone)]
-pub struct ArgName(pub Ident);
+pub(crate) struct ParamName(pub Ident);
 
-impl Parse for ArgName {
+impl Parse for ParamName {
     fn parse(input: ParseStream) -> Result<Self> {
         let Result::Ok(name) = input.parse::<Ident>() else {
             return Err(input.error("expected test name"));
@@ -29,7 +24,7 @@ impl Parse for ArgName {
     }
 }
 
-impl Mutate for ArgName {
+impl Mutate for ParamName {
     type Item = Signature;
 
     fn mutate(&self, target: &mut Self::Item) -> Result<()> {
@@ -39,5 +34,5 @@ impl Mutate for ArgName {
     }
 }
 
-impl_unique_arg!(ArgName);
-impl_to_tokens_arg!(ArgName, 0);
+impl_unique_param!(ParamName);
+impl_to_tokens_param!(ParamName, 0);
