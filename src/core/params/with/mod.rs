@@ -183,7 +183,7 @@ mod tests {
         }
 
         #[test]
-        fn explicit_type_annotation() {
+        fn parses_explicit_type_annotation() {
             let mut sig: Signature = parse_quote!{
                 fn _test(one: usize)
             };
@@ -192,7 +192,7 @@ mod tests {
         }
 
         #[test]
-        fn ducked_type_annotation() {
+        fn parses_ducked_type_annotation() {
             let mut sig: Signature = parse_quote!{
                 fn _test(one: _)
             };
@@ -201,7 +201,7 @@ mod tests {
         }
 
         #[test]
-        fn with_outer_attribute() {
+        fn parses_outer_attribute() {
             let mut sig: Signature = parse_quote!{
                 fn _test(#[my_attr] one: String)
             };
@@ -213,7 +213,7 @@ mod tests {
         }
 
         #[test]
-        fn with_self_input() {
+        fn returns_error_on_self_fn_parameter() {
             let mut sig: Signature = parse_quote!{
                 fn _test(self)
             };
@@ -222,7 +222,7 @@ mod tests {
         }
 
         #[test]
-        fn empty() {
+        fn returns_error_when_no_bindings_provided() {
             assert_fn_inputs_eq!(None, Err(error_spanned!("no corresponding input")));
         }
     }

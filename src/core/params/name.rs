@@ -54,7 +54,7 @@ mod tests {
     };
 
     #[test]
-    fn parse_name_ident() {
+    fn parse_accepts_ident() {
         assert_eq_parsed!(
             syn::parse2::<ParamName>(quote!(test)),
             Ok(ParamName(syn::Ident::new("test", Span::call_site())))
@@ -62,7 +62,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_name_type() {
+    fn parse_accepts_type() {
         assert_eq_parsed!(
             syn::parse2::<ParamName>(quote!(usize)),
             Ok(ParamName(syn::Ident::new("usize", Span::call_site())))
@@ -70,7 +70,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_name_non_ident() {
+    fn parse_returns_error_on_non_ident() {
         assert_eq_parsed!(
             syn::parse2::<ParamName>(quote!((group))),
             Err(error_spanned!("expected test name"))

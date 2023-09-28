@@ -122,49 +122,49 @@ pub(crate) mod tests {
         use syn::AttrStyle;
 
         #[test]
-        fn ident() {
+        fn works_with_single_name_attributes() {
             let attr = construct_attribute!(AttrStyle::Outer, test);
 
             assert_eq!(attribute_name_to_string(&attr).as_str(), "test");
         }
 
         #[test]
-        fn ident_path() {
+        fn works_with_pathed_name_attributes() {
             let attr = construct_attribute!(AttrStyle::Outer, my::path::to::test);
 
             assert_eq!(attribute_name_to_string(&attr).as_str(), "test");
         }
 
         #[test]
-        fn list() {
+        fn works_with_list_attributes() {
             let attr = construct_attribute!(AttrStyle::Outer, test(one, two));
 
             assert_eq!(attribute_name_to_string(&attr).as_str(), "test");
         }
 
         #[test]
-        fn list_path() {
+        fn works_with_pathed_list_attributes() {
             let attr = construct_attribute!(AttrStyle::Outer, path::to::my::test(one, two));
 
             assert_eq!(attribute_name_to_string(&attr).as_str(), "test");
         }
 
         #[test]
-        fn name_value() {
+        fn works_with_name_value_attributes() {
             let attr = construct_attribute!(AttrStyle::Outer, test = 123);
 
             assert_eq!(attribute_name_to_string(&attr).as_str(), "test");
         }
 
         #[test]
-        fn name_value_path() {
+        fn works_with_pathed_name_value_attributes() {
             let attr = construct_attribute!(AttrStyle::Outer, path::to::my::test = 123);
 
             assert_eq!(attribute_name_to_string(&attr).as_str(), "test");
         }
 
         #[test]
-        fn empty() {
+        fn returns_empty_string_when_empty_attribute() {
             let attr = construct_attribute!(AttrStyle::Outer);
 
             assert_eq!(attribute_name_to_string(&attr).as_str(), "");
@@ -220,7 +220,7 @@ pub(crate) mod tests {
         type GroupSeperated = VecLiteralShim::<Group, true>;
 
         #[test]
-        fn single() {
+        fn parses_single_values() {
             impl_parse_shim!(CommaSeperated, CommaSeperated::parse);
 
             assert_eq_parsed!(
@@ -230,7 +230,7 @@ pub(crate) mod tests {
         }
 
         #[test]
-        fn many() {
+        fn parses_many_values() {
             impl_parse_shim!(CommaSeperated, CommaSeperated::parse);
 
             assert_eq_parsed!(
@@ -240,7 +240,7 @@ pub(crate) mod tests {
         }
 
         #[test]
-        fn arbitrary_delims() {
+        fn accepts_arbitrary_delimiters() {
             impl_parse_shim!(GroupSeperated, GroupSeperated::parse);
 
             assert_eq_parsed!(
@@ -250,7 +250,7 @@ pub(crate) mod tests {
         }
 
         #[test]
-        fn invalid_delim() {
+        fn propegates_error_when_invalid_delim() {
             type CommaSeperatedNoEmptyCheck = VecLiteralShim::<Token![,], false>;
             impl_parse_shim!(CommaSeperatedNoEmptyCheck, CommaSeperatedNoEmptyCheck::parse);
 
@@ -260,7 +260,7 @@ pub(crate) mod tests {
         }
 
         #[test]
-        fn empty() {
+        fn returns_empty_collection_on_empty_input_tokens() {
             impl_parse_shim!(CommaSeperated, CommaSeperated::parse);
     
             assert_eq_parsed!(
@@ -288,7 +288,7 @@ pub(crate) mod tests {
         }
 
         #[test]
-        fn parenthesis() {
+        fn parses_parentheses() {
             impl_parse_shim!(TokenStream, parse_parenthesis_shim);
 
             assert_eq_parsed!(
@@ -298,7 +298,7 @@ pub(crate) mod tests {
         }
 
         #[test]
-        fn parenthesis_invalid() {
+        fn returns_error_on_invalid_parentheses_tokens() {
             impl_parse_shim!(TokenStream, parse_parenthesis_shim);
 
             assert_eq_parsed!(
@@ -308,7 +308,7 @@ pub(crate) mod tests {
         }
 
         #[test]
-        fn braces() {
+        fn parses_braces() {
             impl_parse_shim!(TokenStream, parse_braces_shim);
 
             assert_eq_parsed!(
@@ -318,7 +318,7 @@ pub(crate) mod tests {
         }
 
         #[test]
-        fn braces_invalid() {
+        fn returns_error_on_invalid_brace_tokens() {
             impl_parse_shim!(TokenStream, parse_braces_shim);
 
             assert_eq_parsed!(
@@ -328,7 +328,7 @@ pub(crate) mod tests {
         }
 
         #[test]
-        fn bracket() {
+        fn parses_brackets() {
             impl_parse_shim!(TokenStream, parse_bracket_shim);
 
             assert_eq_parsed!(
@@ -338,7 +338,7 @@ pub(crate) mod tests {
         }
 
         #[test]
-        fn bracket_invalid() {
+        fn returns_error_on_invalid_bracket_tokens() {
             impl_parse_shim!(TokenStream, parse_bracket_shim);
 
             assert_eq_parsed!(
@@ -348,7 +348,7 @@ pub(crate) mod tests {
         }
 
         #[test]
-        fn none() {
+        fn returns_error_on_no_tokens() {
             impl_parse_shim!(TokenStream, parse_parenthesis_shim);
 
             assert_eq_parsed!(
@@ -371,7 +371,7 @@ pub(crate) mod tests {
         impl_parse_shim!(TokenTree, parse_next_tt);
     
         #[test]
-        fn group() {
+        fn parses_groups() {
             assert_eq_parsed!(
                 syn::parse2::<ParseShim<TokenTree>>(quote!((inner))),
                 Ok(Group::new(Delimiter::Parenthesis, quote!(inner)))
@@ -379,7 +379,7 @@ pub(crate) mod tests {
         }
 
         #[test]
-        fn ident() {
+        fn parses_idents() {
             assert_eq_parsed!(
                 syn::parse2::<ParseShim<TokenTree>>(quote!(test)),
                 Ok(Ident::new("test", Span::call_site()))
@@ -387,7 +387,7 @@ pub(crate) mod tests {
         }
 
         #[test]
-        fn punct() {
+        fn parses_punctuation() {
             assert_eq_parsed!(
                 syn::parse2::<ParseShim<TokenTree>>(quote!(,)),
                 Ok(Punct::new(',', Spacing::Alone))
@@ -395,7 +395,7 @@ pub(crate) mod tests {
         }
 
         #[test]
-        fn literal() {
+        fn parses_literals() {
             assert_eq_parsed!(
                 syn::parse2::<ParseShim<TokenTree>>(quote!("test")),
                 Ok(Literal::string("test"))
@@ -403,7 +403,7 @@ pub(crate) mod tests {
         }
 
         #[test]
-        fn empty() {
+        fn returns_error_on_no_tokens() {
             assert_eq_parsed!(
                 syn::parse2::<ParseShim<TokenTree>>(quote!()),
                 Err(error_spanned!("expected token"))
@@ -443,7 +443,7 @@ pub(crate) mod tests {
         impl_parse_shim!(TokenTree, peek_next_tt_spy);
 
         #[test]
-        fn group() {
+        fn parses_groups_without_advancing_input_stream() {
             assert_eq_parsed!(
                 syn::parse2::<ParseShim<TokenTree>>(quote!((inner))),
                 Ok(Group::new(Delimiter::Parenthesis, quote!(inner)))
@@ -451,7 +451,7 @@ pub(crate) mod tests {
         }
 
         #[test]
-        fn ident() {
+        fn parses_idents_without_advancing_input_stream() {
             assert_eq_parsed!(
                 syn::parse2::<ParseShim<TokenTree>>(quote!(test)),
                 Ok(Ident::new("test", Span::call_site()))
@@ -459,7 +459,7 @@ pub(crate) mod tests {
         }
 
         #[test]
-        fn punct() {
+        fn parses_punctuation_without_advancing_input_stream() {
             assert_eq_parsed!(
                 syn::parse2::<ParseShim<TokenTree>>(quote!(,)),
                 Ok(Punct::new(',', Spacing::Alone))
@@ -467,7 +467,7 @@ pub(crate) mod tests {
         }
 
         #[test]
-        fn literal() {
+        fn parses_literals_without_advancing_input_stream() {
             assert_eq_parsed!(
                 syn::parse2::<ParseShim<TokenTree>>(quote!("test")),
                 Ok(Literal::string("test"))
@@ -475,7 +475,7 @@ pub(crate) mod tests {
         }
     
         #[test]
-        fn empty() {
+        fn returns_error_on_no_tokens() {
             assert_eq_parsed!(
                 syn::parse2::<ParseShim<TokenTree>>(quote!()),
                 Err(error_spanned!("expected token"))

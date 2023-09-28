@@ -31,7 +31,7 @@ mod tests {
     };
 
     #[test]
-    fn mutate_stmt_order() {
+    fn mutate_correctly_appends_statements_preserving_order() {
         let stmts = Vec::from([
             syn::parse2::<Stmt>(quote!(let a = 1;)).unwrap(),
             syn::parse2::<Stmt>(quote!(let b = 2;)).unwrap(),
@@ -66,7 +66,7 @@ mod tests {
     }
 
     #[test]
-    fn empty() {
+    fn mutate_works_with_no_parsed_statements() {
         let stmts = Vec::from([
             syn::parse2::<Stmt>(quote!(let a = 1;)).unwrap(),
             syn::parse2::<Stmt>(quote!(let b = 2;)).unwrap(),
@@ -86,7 +86,7 @@ mod tests {
     }
 
     #[test]
-    fn uniqueness() {
+    fn parameter_is_unique() {
         let first = ParamTeardown(Vec::new());
         let second = ParamTeardown(Vec::from([
             syn::parse2::<Stmt>(quote!(let a = 1;)).unwrap()
@@ -96,7 +96,7 @@ mod tests {
     }
 
     #[test]
-    fn to_tokens() {
+    fn to_tokens_outputs_internal_contents_literally() {
         let teardown = ParamTeardown(
             Vec::from([
                 syn::parse2::<Stmt>(quote!(let a = 1;)).unwrap(),

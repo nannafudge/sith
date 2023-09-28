@@ -83,7 +83,7 @@ mod tests {
     use syn::parse_quote;
 
     #[test]
-    fn parse_primitive_inputs() {
+    fn parses_primitive_inputs() {
         assert_eq_parsed!(
             syn::parse2::<ParamAssignment>(quote!(0)),
             Ok(quote!(0))
@@ -95,7 +95,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_enum_variant_inputs() {
+    fn parses_enum_variant_inputs() {
         assert_eq_parsed!(
             syn::parse2::<ParamAssignment>(quote!(Option::Some(0))),
             Ok(quote!(Option::Some(0)))
@@ -107,7 +107,7 @@ mod tests {
     }
     
     #[test]
-    fn parse_named_tuple_input() {
+    fn parses_named_tuple_inputs() {
         assert_eq_parsed!(
             syn::parse2::<ParamAssignment>(quote!(
                 MyStruct::<'static, str>("test", (0, 1))
@@ -128,7 +128,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_with_instantiation_methods_on_input() {
+    fn parses_inputs_with_instantiation_methods() {
         assert_eq_parsed!(
             syn::parse2::<ParamAssignment>(quote!(
                 MyStruct::<'static, str>::new("test", (0, 1))
@@ -140,7 +140,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_with_ref_input() {
+    fn parses_ref_inputs() {
         assert_eq_parsed!(
             syn::parse2::<ParamAssignment>(quote!(
                 &mut MyStruct::<'static, str>::new("test", (0, 1))
@@ -152,7 +152,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_with_mut_override() {
+    fn parses_inputs_with_mut_override() {
         assert_eq_parsed!(
             syn::parse2::<ParamAssignment>(quote!(mut usize::default())),
             Ok(quote!(mut usize::default()))
@@ -222,7 +222,7 @@ mod tests {
     }
 
     #[test]
-    fn mutate_with_mut_override_and_nonexisting_mut_input() {
+    fn mutate_propagates_mut_overrides() {
         let mut target_nonexisting_mut: ItemFn = parse_quote!{
             fn input(input: usize) {}
         };
@@ -237,7 +237,7 @@ mod tests {
     }
 
     #[test]
-    fn mutate_with_mut_override_and_existing_mut_input() {
+    fn mutate_propagates_mut_overrides_when_already_defined_on_binding() {
         let mut target_existing_mut: ItemFn = parse_quote!{
             fn input(mut input: usize) {}
         };
@@ -252,7 +252,7 @@ mod tests {
     }
 
     #[test]
-    fn mutate_no_fn_inputs() {
+    fn mutate_returns_error_when_no_fn_inputs() {
         let mut target: ItemFn = parse_quote!{
             fn input() {}
         };

@@ -125,7 +125,7 @@ mod tests {
     }
 
     #[test]
-    fn mutate_when_no_tokens_captured() {
+    fn mutate_works_when_no_tokens_captured() {
         let mut target: ItemFn = parse_quote!{
             fn foo(r#replace: _) {
                 let a = r#replace(0);
@@ -168,7 +168,7 @@ mod tests {
         };
 
         #[test]
-        fn within_nested_parenthesis() {
+        fn works_within_nested_parenthesis() {
             let target = TokenBuffer::new2(quote!{
                 let val: usize = foo(r#replace, bar(r#replace));
             });
@@ -185,7 +185,7 @@ mod tests {
         }
 
         #[test]
-        fn within_nested_braces() {
+        fn works_within_nested_braces() {
             let target = TokenBuffer::new2(quote!{
                 let val: Matrix = if true {
                     Matrix::M2 { x: r#replace, y: 1 }
@@ -210,7 +210,7 @@ mod tests {
         }
 
         #[test]
-        fn within_nested_brackets() {
+        fn works_within_nested_brackets() {
             let target = TokenBuffer::new2(quote!{
                 let tiles: [Chunk<[Tile; r#replace]>; r#replace];
             });
@@ -227,7 +227,7 @@ mod tests {
         }
 
         #[test]
-        fn empty() {
+        fn works_with_empty_substitution_tokens() {
             let target = TokenBuffer::new2(quote!());
             let new = recursive_descent_replace(
                 &mut target.begin(),
@@ -239,7 +239,7 @@ mod tests {
         }
 
         #[test]
-        fn no_matches() {
+        fn result_is_unchanged_when_no_matches_found() {
             let target = TokenBuffer::new2(quote!{
                 let a: usize = usize::MAX;
             });
