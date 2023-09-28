@@ -94,5 +94,105 @@ fn recursive_descent_replace(input: &mut Cursor, pattern: &Ident, substitute: &T
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use crate::common::tests::macros::*;
     
+    use quote::quote;
+
+    mod recursive_descent_replace {
+        use super::*;
+
+        use syn::{
+            parse_quote,
+            buffer::TokenBuffer
+        };
+
+        #[test]
+        fn within_nested_parenthesis() {
+            let target = TokenBuffer::new2(quote!{
+                let val: usize = foo(r#replace, bar(r#replace));
+            });
+
+            let new = recursive_descent_replace(
+                &mut target.begin(),
+                &parse_quote!(r#replace),
+                &quote!(123)
+            );
+
+            assert_eq_tokens!(new, quote!{
+                let val: usize = foo(123, bar(123));
+            });
+        }
+
+        #[test]
+        fn within_nested_braces() {
+            let target = TokenBuffer::new2(quote!{
+                let val: Matrix = if true {
+                    Matrix::M2 { x: r#replace, y: 1 }
+                } else {
+                    Matrix::M2 { x: 1, y: r#replace }
+                }
+            });
+
+            let new = recursive_descent_replace(
+                &mut target.begin(),
+                &parse_quote!(r#replace),
+                &quote!(123)
+            );
+
+            assert_eq_tokens!(new, quote!{
+                let val: Matrix = if true {
+                    Matrix::M2 { x: 123, y: 1 }
+                } else {
+                    Matrix::M2 { x: 1, y: 123 }
+                }
+            });
+        }
+
+        #[test]
+        fn within_nested_brackets() {
+            let target = TokenBuffer::new2(quote!{
+                let tiles: [Chunk<[Tile; r#replace]>; r#replace];
+            });
+
+            let new = recursive_descent_replace(
+                &mut target.begin(),
+                &parse_quote!(r#replace),
+                &quote!(64)
+            );
+
+            assert_eq_tokens!(new, quote!{
+                let tiles: [Chunk<[Tile; 64]>; 64];
+            });
+        }
+
+        #[test]
+        fn empty() {
+            let target = TokenBuffer::new2(quote!());
+            let new = recursive_descent_replace(
+                &mut target.begin(),
+                &parse_quote!(r#replace),
+                &quote!(64)
+            );
+
+            assert_eq_tokens!(new, quote!());
+        }
+
+        #[test]
+        fn no_matches() {
+            let target = TokenBuffer::new2(quote!{
+                let a: usize = usize::MAX;
+            });
+
+            let new = recursive_descent_replace(
+                &mut target.begin(),
+                &parse_quote!(r#replace),
+                &quote!(64)
+            );
+
+            assert_eq_tokens!(new, quote!{
+                let a: usize = usize::MAX;
+            });
+        }
+    }
 }
