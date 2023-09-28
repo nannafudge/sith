@@ -66,7 +66,6 @@ impl_param!(ParamAssignment, 0, 1);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use self::macros::*;
     use crate::common::{
         macros::error_spanned,
         tests::macros::*
@@ -251,27 +250,5 @@ mod tests {
             ParamAssignment(None, parse_quote!(0)), &mut target,
             Err(error_spanned!("no corresponding input"))
         );
-    }
-
-    mod macros {
-        macro_rules! assert_eq_mutate {
-            ($mutator:expr, $target:expr, Ok(())) => {
-                if let Err(e) = &$mutator.mutate($target) {
-                    panic!("assertion failed:\nleft: Ok(())\nright: Err({:?})", &e)
-                }
-            };
-            ($mutator:expr, $target:expr, Err($right:expr)) => {
-                match &$mutator.mutate($target) {
-                    Err(e) => {
-                        if !e.to_compile_error().to_string().eq(&$right.to_compile_error().to_string()) {
-                            panic!("assertion failed:\nleft: {:?}\nright: {:?}", &e, &$right)
-                        }
-                    },
-                    _ => panic!("assertion failed:\nleft: Ok(())\nright: Err({:?})", &$right)
-                };
-            };
-        }
-
-        pub(crate) use assert_eq_mutate;
     }
 }
