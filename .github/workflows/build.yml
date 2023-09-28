@@ -26,12 +26,12 @@ jobs:
     - name: Parse Coverage Total
       id: cov_gen
       run: >
-        npm install lcov-total &&
+        yarn install lcov-total &&
         echo coverage=$(npx lcov-total ${{ github.workspace }}/lcov.info) >> "$GITHUB_OUTPUT"
     - name: Create Coverage Badge
       run: >
-        npm install badge-maker &&
-        npx badge coverage "${{ steps.cov_gen.outputs.coverage }}%"
+        yarn install badge-maker &&
+        npx badge Coverage "${{ steps.cov_gen.outputs.coverage }}%"
         ${{ steps.cov_gen.outputs.coverage < 25 && 'red' || 
             steps.cov_gen.outputs.coverage < 50 && 'orange' ||
             steps.cov_gen.outputs.coverage < 75 && 'yellow' ||
