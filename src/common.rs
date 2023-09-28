@@ -165,28 +165,34 @@ pub(crate) mod tests {
 
     mod greedy_parse_with_delim {
         use super::*;
-        
+
         use core::marker::PhantomData;
         use syn::Token;
         use proc_macro2::{
             Literal, Group
         };
 
-        struct VecLiteralShim<D: Parse>(Vec<Literal>, PhantomData<D>);
+        struct VecLiteralShim<D: Parse, const S: bool>(Vec<Literal>, PhantomData<D>);
 
-        impl<D: Parse> core::fmt::Debug for VecLiteralShim<D> {
+        impl<D: Parse, const S: bool> core::fmt::Debug for VecLiteralShim<D, S> {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 f.debug_tuple("VecLiteralShim").field(&self.0).finish()
             }
         }
 
-        impl<D: Parse> ToTokens for VecLiteralShim<D> {
+        impl<D: Parse, const S: bool> ToTokens for VecLiteralShim<D, S> {
             fn to_tokens(&self, tokens: &mut TokenStream) {
                 self.0.iter().for_each(| item | item.to_tokens(tokens));
             }
         }
 
-        impl<D: Parse> Parse for VecLiteralShim<D> {
+        impl<D: Parse, const S: bool> VecLiteralShim<D, S> {
+            fn new(inner: Vec<Literal>) -> Self {
+                Self(inner, PhantomData)
+            }
+        }
+
+        impl<D: Parse> Parse for VecLiteralShim<D, true> {
             fn parse(input: ParseStream) -> Result<Self> {
                 let out = greedy_parse_with_delim::<Literal, D>(input);
                 assert!(input.is_empty(), "greedy_parse: failed to capture all tokens");
@@ -195,14 +201,15 @@ pub(crate) mod tests {
             }
         }
 
-        impl<D: Parse> VecLiteralShim<D> {
-            fn new(inner: Vec<Literal>) -> Self {
-                Self(inner, PhantomData)
+        impl<D: Parse> Parse for VecLiteralShim<D, false> {
+            fn parse(input: ParseStream) -> Result<Self> {
+                let out = greedy_parse_with_delim::<Literal, D>(input);
+                Ok(Self(out?, PhantomData))
             }
         }
 
-        type CommaSeperated = VecLiteralShim::<Token![,]>;
-        type GroupSeperated = VecLiteralShim::<Group>;
+        type CommaSeperated = VecLiteralShim::<Token![,], true>;
+        type GroupSeperated = VecLiteralShim::<Group, true>;
 
         #[test]
         fn single() {
@@ -236,20 +243,18 @@ pub(crate) mod tests {
 
         #[test]
         fn invalid_delim() {
-            fn parse_delim_comma_shim(input: ParseStream) -> Result<Vec<Literal>> {
-                greedy_parse_with_delim::<Literal, Token![,]>(input)
-            }
-
-            impl_parse_shim!(Vec<Literal>, parse_delim_comma_shim);
+            type CommaSeperatedNoEmptyCheck = VecLiteralShim::<Token![,], false>;
+            impl_parse_shim!(CommaSeperatedNoEmptyCheck, CommaSeperatedNoEmptyCheck::parse);
 
             // Error message generation is delegated to syn's implementation here,
             // so we shouldn't explicity test against such in case it changes in the future
-            assert!(syn::parse2::<ParseShim<Vec<Literal>>>(quote!("foo";)).is_err());
+            assert!(syn::parse2::<ParseShim<CommaSeperatedNoEmptyCheck>>(quote!("foo";)).is_err());
         }
 
         #[test]
         fn empty() {
             impl_parse_shim!(CommaSeperated, CommaSeperated::parse);
+    
             assert_eq_parsed!(
                 syn::parse2::<ParseShim<CommaSeperated>>(quote!()),
                 Ok(CommaSeperated::new(Vec::new()))
@@ -475,6 +480,12 @@ pub(crate) mod tests {
                         Ok(Self($use_fn(input)?))
                     }
                 }
+
+                impl quote::ToTokens for ParseShim<$for_type> where $for_type: quote::ToTokens {
+                    fn to_tokens(&self, tokens: &mut TokenStream) {
+                        quote::ToTokens::to_tokens(&self.0, tokens);
+                    }
+                }
             };
         }
 
@@ -492,21 +503,29 @@ pub(crate) mod tests {
                 }
             };
             ($style:expr) => {
-                construct_attribute!($style, )
+                syn::Attribute {
+                    pound_token: syn::token::Pound::default(),
+                    style: $style,
+                    bracket_token: syn::token::Bracket::default(),
+                    meta: syn::Meta::Path(syn::Path{
+                        leading_colon: None,
+                        segments: syn::punctuated::Punctuated::<syn::PathSegment, syn::token::PathSep>::new()
+                    })
+                }
             };
         }
 
         macro_rules! assert_eq_parsed {
             ($left:expr, Ok($right:expr)) => {
                 match &$left {
-                    Ok(left) if left.0.to_token_stream().to_string().eq(&$right.to_token_stream().to_string()) => {},
-                    _ => panic!("assertion failed:\nleft: {:?}\nright:{:?}", &$left, &$right)
+                    Ok(left) if left.to_token_stream().to_string().eq(&$right.to_token_stream().to_string()) => {},
+                    _ => panic!("assertion failed:\nleft: {:?}\nright: Ok({})", &$left, &$right.to_token_stream())
                 };
             };
             ($left:expr, Err($right:expr)) => {
                 match &$left {
                     Err(left) if left.to_compile_error().to_string().eq(&$right.to_compile_error().to_string()) => {},
-                    _ => panic!("assertion failed:\nleft: {:?}\nright:{:?}", &$left, &$right)
+                    _ => panic!("assertion failed:\nleft: {:?}\nright: Err({})", &$left, &$right.to_compile_error())
                 };
             };
         }

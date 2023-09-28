@@ -64,7 +64,7 @@ impl From<ParamVerbatim> for ParamWithInner {
     }
 }
 
-impl_to_tokens_param!(ParamVerbatim, 0);
+impl_param!(ParamVerbatim, 0);
 
 fn recursive_descent_replace(input: &mut Cursor, pattern: &Ident, substitute: &TokenStream) -> TokenStream {
     let mut out = TokenStream::new();
@@ -90,4 +90,9 @@ fn recursive_descent_replace(input: &mut Cursor, pattern: &Ident, substitute: &T
     }
 
     out
+}
+
+#[cfg(test)]
+mod tests {
+    
 }

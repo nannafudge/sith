@@ -47,7 +47,9 @@ impl Mutate for ParamAssignment {
         let mut tokens = TokenStream::new();
         // Apply defined attributes above the composed `let` statement
         tokens.append_all(attrs);
-        quote::quote!(let #def: #ty = #self;).to_tokens(&mut tokens);
+
+        let expr: &Expr = &self.1;
+        quote::quote!(let #def: #ty = #expr;).to_tokens(&mut tokens);
 
         target.block.stmts.insert(0, syn::parse2::<Stmt>(tokens)?);
         Ok(())
@@ -60,4 +62,36 @@ impl From<ParamAssignment> for ParamWithInner {
     }
 }
 
-impl_to_tokens_param!(ParamAssignment, 1);
+impl_param!(ParamAssignment, 0, 1);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::common::tests::macros::*;
+
+    use quote::quote;
+    
+    #[test]
+    fn parse_enum_variant() {
+        assert_eq_parsed!(
+            syn::parse2::<ParamAssignment>(quote!(Option::Some(0))),
+            Ok(quote!(Option::Some(0)))
+        );
+    }
+
+    fn parse_struct_tuple() {
+
+    }
+
+    fn parse_struct_new() {
+
+    }
+
+    fn parse_primitive() {
+
+    }
+
+    fn parse_with_mut_override() {
+
+    }
+}

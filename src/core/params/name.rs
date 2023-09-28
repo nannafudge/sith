@@ -11,7 +11,7 @@ use crate::params::{
     Mutate, macros::*
 };
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub(crate) struct ParamName(pub Ident);
 
 impl Parse for ParamName {
@@ -34,8 +34,8 @@ impl Mutate for ParamName {
     }
 }
 
-impl_unique_param!(ParamName);
-impl_to_tokens_param!(ParamName, 0);
+impl_unique!(ParamName);
+impl_param!(ParamName, 0);
 
 #[cfg(test)]
 mod tests {

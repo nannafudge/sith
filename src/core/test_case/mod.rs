@@ -23,7 +23,7 @@ use crate::{
         macros::*
     },
     params::{
-        macros::impl_to_tokens_param,
+        macros::impl_param,
         parse_param_args,
         name::*, with::*
     }
@@ -113,7 +113,7 @@ impl TestCase {
     pub const WASM_TEST_IDENT: &'static str = "wasm_bindgen_test";
 }
 
-impl_to_tokens_param!(TestCase, iterable(0));
+impl_param!(TestCase, iterable(0));
 
 pub fn render_test_case(test_case_: TestCase, mut target: ItemFn) -> TokenStream {
     let mut out: TokenStream = TokenStream::new();

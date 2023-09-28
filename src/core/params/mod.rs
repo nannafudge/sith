@@ -22,7 +22,7 @@ pub(crate) fn parse_param_args<T: Parse>(input: ParseStream) -> Result<T> {
 
 #[macro_use]
 pub(crate) mod macros {
-    macro_rules! impl_unique_param {
+    macro_rules! impl_unique {
         ($target:ident $(< $generic:tt $(, $generics:tt)? >)?) => {
             impl $(< $generic $(, $generics)? >)? PartialEq for $target $(<$generic $(, $generics)?>)? {
                 fn eq(&self, _: &Self) -> bool { true }
@@ -73,23 +73,56 @@ pub(crate) mod macros {
         };
     }
 
-    macro_rules! impl_to_tokens_param {
-        ($target:ty, iterable($($path:tt)+)) => {
+    macro_rules! impl_param {
+        (@to_tokens($self:ident, $tokens:ident, iterable($field:tt $(. $subfield:tt)*))) => {
+            $self.$field$(. $subfield)*.iter().for_each(| item | {
+                quote::ToTokens::to_tokens(item, $tokens)
+            })
+        };
+        (@to_token_stream($self:ident, iterable($field:tt $(. $subfield:tt)*))) => {
+            $self.$field$(. $subfield)*.iter().fold(proc_macro2::TokenStream::new(), | mut acc, item | {
+                quote::ToTokens::to_tokens(item, &mut acc);
+                acc
+            })
+        };
+        (@to_tokens($self:ident, $tokens:ident, $field:tt $(. $subfield:tt)*)) => {
+            quote::ToTokens::to_tokens(&$self.$field$(. $subfield)*, $tokens)
+        };
+        (@to_token_stream($self:ident, $field:tt $(. $subfield:tt)*)) => {
+            quote::ToTokens::to_token_stream(&$self.$field$(. $subfield)*)
+        };
+        ($target:ty $(, $field:tt $(. $subfield:tt)* $(($iter_field:tt $(. $iter_subfield:tt)*))? )+ ) => {
             impl quote::ToTokens for $target {
                 fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-                    self.$($path)+.iter().for_each(| item | item.to_tokens(tokens));
+                    $(
+                        impl_param!(
+                            @to_tokens(
+                                self, tokens,
+                                $field $(. $subfield)* $(($iter_field $(. $iter_subfield)*))?
+                            )
+                        );
+                    )+
                 }
             }
-        };
-        ($target:ty, $($path:tt)+) => {
-            impl quote::ToTokens for $target {
-                fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-                    self.$($path)+.to_tokens(tokens);
+
+            impl core::fmt::Debug for $target {
+                fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+                    f.debug_tuple(stringify!($target))
+                    $(
+                        .field(
+                            &format!("{}", &impl_param!(
+                                @to_token_stream(
+                                    self, $field $(. $subfield)* $(($iter_field $(. $iter_subfield)*))?
+                                )
+                            ))
+                        )
+                    )+
+                    .finish()
                 }
             }
         };
     }
 
-    pub(crate) use impl_unique_param;
-    pub(crate) use impl_to_tokens_param;
+    pub(crate) use impl_param;
+    pub(crate) use impl_unique;
 }

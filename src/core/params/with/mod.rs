@@ -114,8 +114,8 @@ impl Mutate for ParamWith {
     }
 }
 
-impl_unique_param!(ParamWith);
-impl_to_tokens_param!(ParamWith, iterable(0));
+impl_unique!(ParamWith);
+impl_param!(ParamWith, iterable(0));
 
 fn parse_rust_fn_input(fn_param: Option<&mut Pair<FnArg, Comma>>) -> Result<(&mut [Attribute], &mut Pat, &mut Type)> {
     match fn_param {

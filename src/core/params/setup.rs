@@ -20,8 +20,8 @@ impl Mutate for ParamSetup {
     }
 }
 
-impl_unique_param!(ParamSetup);
-impl_to_tokens_param!(ParamSetup, iterable(0));
+impl_unique!(ParamSetup);
+impl_param!(ParamSetup, iterable(0));
 
 #[cfg(test)]
 mod tests {
