@@ -1,7 +1,6 @@
 use quote::ToTokens;
 
 use proc_macro2::{
-    Literal,
     TokenStream, TokenTree
 };
 use syn::{
@@ -91,14 +90,14 @@ impl Mutate for ParamWith {
 
     fn mutate(&self, target: &mut Self::Item) -> Result<()> {
         if self.0.len() != target.sig.inputs.len() {
-            return Err(
-                error_spanned!(
-                    format!("with(): {} fn inputs but only {} args declared"),
-                    &target.sig.inputs,
-                    &Literal::usize_unsuffixed(target.sig.inputs.len()),
-                    &Literal::usize_unsuffixed(self.0.len())
-                )
-            );
+            return Err(error_spanned!(
+                format!(
+                    "with(): {} fn inputs but only {} args declared",
+                    target.sig.inputs.len(),
+                    self.0.len()
+                ),
+                &target.sig.inputs
+            ));
         }
 
         let mut inputs = core::mem::take(&mut target.sig.inputs).into_iter();

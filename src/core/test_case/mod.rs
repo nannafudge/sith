@@ -13,9 +13,12 @@ use syn::{
 };
 use crate::{
     common::{
-        macros::unwrap_or_err,
         attribute_name_to_string,
-        parse_next_tt
+        parse_next_tt,
+        macros::{
+            unwrap_or_err,
+            error_spanned
+        }
     },
     core::{
         Mutate, Mutators,
@@ -60,7 +63,7 @@ impl ToTokens for TestMutator {
 impl Parse for TestMutator {
     fn parse(input: ParseStream) -> Result<Self> {
         let Ok(TokenTree::Ident(name)) = parse_next_tt(input) else {
-            return Err(input.error("expected one of: `name`, `arg(...)`"));
+            return Err(error_spanned!("expected one of: `name`, `arg(...)`", &input.span()));
         };
 
         match name.to_string().as_bytes() {

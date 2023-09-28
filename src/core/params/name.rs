@@ -7,8 +7,11 @@ use syn::{
         Parse, ParseStream
     }
 };
-use crate::params::{
-    Mutate, macros::*
+use crate::{
+    common::macros::error_spanned,
+    params::{
+        Mutate, macros::*
+    }
 };
 
 #[derive(Clone)]
@@ -17,7 +20,7 @@ pub(crate) struct ParamName(pub Ident);
 impl Parse for ParamName {
     fn parse(input: ParseStream) -> Result<Self> {
         let Result::Ok(name) = input.parse::<Ident>() else {
-            return Err(input.error("expected test name"));
+            return Err(error_spanned!("expected test name", &input.span()));
         };
 
         Ok(Self(name))

@@ -9,6 +9,8 @@ use syn::{
     }
 };
 
+use crate::common::macros::error_spanned;
+
 const DELIM_DEBUG: [&str; 4] = ["()", "{}", "[]", "INVIS"];
 
 pub fn attribute_name_to_string(attr: &Attribute) -> String {
@@ -26,7 +28,12 @@ pub fn parse_group_with_delim(delim: Delimiter, input: ParseStream) -> Result<To
         }
 
         // isize can be cast as usize in this case - there's no negative values
-        Err(cursor.error(format!("expected '{}'", DELIM_DEBUG[delim as usize])))
+        Err(
+            error_spanned!(
+                format!("expected `{}`", DELIM_DEBUG[delim as usize]),
+                &cursor.span()
+            )
+        )
     })
 }
 
@@ -48,23 +55,23 @@ pub fn greedy_parse_with_delim<T, D>(input: ParseStream) -> Result<Vec<T>> where
 pub fn peek_next_tt(input: ParseStream) -> Result<TokenTree> {
     match input.cursor().token_tree() {
         Some((tt, _)) => Ok(tt),
-        _ => Err(input.error("expected token"))
+        _ => Err(error_spanned!("expected token", &input.span()))
     }
 }
 
 pub fn parse_next_tt(input: ParseStream) -> Result<TokenTree> {
     input.step(| cursor | {
-        cursor.token_tree().ok_or(input.error("expected token"))
+        cursor.token_tree().ok_or(error_spanned!("expected token", &cursor.span()))
     })
 }
 
 #[macro_use]
 pub(crate) mod macros {
     macro_rules! error_spanned {
-        ($error:literal) => {
+        ($error:expr) => {
             syn::Error::new(proc_macro2::Span::call_site(), $error)
         };
-        ($error:literal, $spanned:expr $(, $others:expr )*) => {
+        ($error:expr, $spanned:expr $(, $others:expr )*) => {
             syn::Error::new(
                 syn::spanned::Spanned::span($spanned)
                 $(
@@ -72,12 +79,6 @@ pub(crate) mod macros {
                 )*,
                 $error
             )
-        };
-        (format!($formatter:literal), $item:expr $(, $other_items:expr )*) => {
-            syn::Error::new(
-                syn::spanned::Spanned::span($item), &format!(
-                $formatter $(, $other_items)*
-            ))
         };
     }
 
@@ -302,7 +303,7 @@ pub(crate) mod tests {
 
             assert_eq_parsed!(
                 syn::parse2::<ParseShim<TokenStream>>(quote!([test, 123])),
-                Err(error_spanned!("expected '()'"))
+                Err(error_spanned!("expected `()`"))
             );
         }
 
@@ -322,7 +323,7 @@ pub(crate) mod tests {
 
             assert_eq_parsed!(
                 syn::parse2::<ParseShim<TokenStream>>(quote!([test, 123])),
-                Err(error_spanned!("expected '{}'"))
+                Err(error_spanned!("expected `{}`"))
             );
         }
 
@@ -342,7 +343,7 @@ pub(crate) mod tests {
 
             assert_eq_parsed!(
                 syn::parse2::<ParseShim<TokenStream>>(quote!({test, 123})),
-                Err(error_spanned!("expected '[]'"))
+                Err(error_spanned!("expected `[]`"))
             );
         }
 
@@ -350,7 +351,10 @@ pub(crate) mod tests {
         fn none() {
             impl_parse_shim!(TokenStream, parse_parenthesis_shim);
 
-            assert!(syn::parse2::<ParseShim<TokenStream>>(quote!()).is_err());
+            assert_eq_parsed!(
+                syn::parse2::<ParseShim<TokenStream>>(quote!()),
+                Err(error_spanned!("expected `()`"))
+            );
         }
     }
 
@@ -400,10 +404,10 @@ pub(crate) mod tests {
 
         #[test]
         fn empty() {
-            // Seems like syn returns its own 'end of input' error, regardless of
-            // implementation - in case their error message changes, simply test
-            // we propegate the error correctly
-            assert!(syn::parse2::<ParseShim<TokenTree>>(quote!()).is_err());
+            assert_eq_parsed!(
+                syn::parse2::<ParseShim<TokenTree>>(quote!()),
+                Err(error_spanned!("expected token"))
+            );
         }
     }
 
@@ -472,7 +476,10 @@ pub(crate) mod tests {
     
         #[test]
         fn empty() {
-            assert!(syn::parse2::<ParseShim<TokenTree>>(quote!()).is_err());
+            assert_eq_parsed!(
+                syn::parse2::<ParseShim<TokenTree>>(quote!()),
+                Err(error_spanned!("expected token"))
+            );
         }
     }
 

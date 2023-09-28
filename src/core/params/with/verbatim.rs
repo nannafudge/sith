@@ -52,7 +52,7 @@ impl Mutate for ParamVerbatim {
                 Ok(())
             },
             (_, _, ty) => {
-                Err(error_spanned!("vertabim(): expected `_`", ty))
+                Err(error_spanned!("verbatim inputs must be tagged as `_`", ty))
             }
         }
     }
@@ -98,6 +98,66 @@ mod tests {
     use crate::common::tests::macros::*;
     
     use quote::quote;
+    use syn::parse_quote;
+
+    #[test]
+    fn parse_accepts_empty_tokens() {
+        assert_eq_parsed!(
+            syn::parse2::<ParamVerbatim>(quote!(verbatim())),
+            Ok(quote!())
+        );
+    }
+
+    #[test]
+    fn parse_accepts_arbitrary_tokens() {
+        assert_eq_parsed!(
+            syn::parse2::<ParamVerbatim>(quote!(verbatim(n *$ ## 1- {}))),
+            Ok(quote!(n *$ ## 1- {}))
+        );
+    }
+
+    #[test]
+    fn parse_returns_error_when_missing_param_parenthesis() {
+        assert_eq_parsed!(
+            syn::parse2::<ParamVerbatim>(quote!(verbatim)),
+            Err(error_spanned!("expected `()`"))
+        );
+    }
+
+    #[test]
+    fn mutate_when_no_tokens_captured() {
+        let mut target: ItemFn = parse_quote!{
+            fn foo(r#replace: _) {
+                let a = r#replace(0);
+            }
+        };
+
+        assert_eq_mutate!(
+            ParamVerbatim(quote!()),
+            &mut target,
+            Ok(())
+        );
+
+        assert_eq!(target.sig.inputs.len(), 0);
+        assert_eq_tokens!(target.block.stmts[0], quote!{
+            let a = (0);
+        });
+    }
+
+    #[test]
+    fn mutate_returns_error_when_not_annotated_as_infer_type() {
+        let mut target: ItemFn = parse_quote!{
+            fn foo(r#replace: usize) {
+                let a = Option::r#replace;
+            }
+        };
+
+        assert_eq_mutate!(
+            ParamVerbatim(quote!()),
+            &mut target,
+            Err(error_spanned!("verbatim inputs must be tagged as `_`"))
+        );
+    }
 
     mod recursive_descent_replace {
         use super::*;

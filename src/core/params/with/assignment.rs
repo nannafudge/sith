@@ -14,8 +14,11 @@ use quote::{
 use super::{
     ParamWithInner, split_rust_fn_input
 };
-use crate::params::{
-    Mutate, macros::*
+use crate::{
+    common::macros::error_spanned,
+    params::{
+        Mutate, macros::*
+    }
 };
 
 #[derive(Clone)]
@@ -23,7 +26,12 @@ pub(crate) struct ParamAssignment(Option<Mut>, Expr);
 
 impl Parse for ParamAssignment {
     fn parse(input: ParseStream) -> Result<Self> {
-        Ok(Self(input.parse::<Mut>().ok(), input.parse::<Expr>()?))
+        Ok(Self(
+            input.parse::<Mut>().ok(),
+            input.parse::<Expr>().map_err(|e| {
+                error_spanned!("expected input", &e.span())
+            })?
+        ))
     }
 }
 
@@ -75,7 +83,7 @@ mod tests {
     use syn::parse_quote;
 
     #[test]
-    fn parse_input_primitive() {
+    fn parse_primitive_inputs() {
         assert_eq_parsed!(
             syn::parse2::<ParamAssignment>(quote!(0)),
             Ok(quote!(0))
@@ -87,7 +95,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_input_enum_variant() {
+    fn parse_enum_variant_inputs() {
         assert_eq_parsed!(
             syn::parse2::<ParamAssignment>(quote!(Option::Some(0))),
             Ok(quote!(Option::Some(0)))
@@ -99,7 +107,7 @@ mod tests {
     }
     
     #[test]
-    fn parse_input_named_tuple() {
+    fn parse_named_tuple_input() {
         assert_eq_parsed!(
             syn::parse2::<ParamAssignment>(quote!(
                 MyStruct::<'static, str>("test", (0, 1))
@@ -120,7 +128,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_input_with_instantiation_methods() {
+    fn parse_with_instantiation_methods_on_input() {
         assert_eq_parsed!(
             syn::parse2::<ParamAssignment>(quote!(
                 MyStruct::<'static, str>::new("test", (0, 1))
@@ -132,7 +140,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_input_ref() {
+    fn parse_with_ref_input() {
         assert_eq_parsed!(
             syn::parse2::<ParamAssignment>(quote!(
                 &mut MyStruct::<'static, str>::new("test", (0, 1))
@@ -152,8 +160,11 @@ mod tests {
     }
 
     #[test]
-    fn parse_empty() {
-        assert!(syn::parse2::<ParamAssignment>(quote!()).is_err());
+    fn parse_returns_error_on_empty() {
+        assert_eq_parsed!(
+            syn::parse2::<ParamAssignment>(quote!()),
+            Err(error_spanned!("expected input"))
+        );
     }
 
     #[test]
