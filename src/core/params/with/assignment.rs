@@ -66,8 +66,11 @@ impl_param!(ParamAssignment, 0, 1);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::common::tests::macros::*;
     use self::macros::*;
+    use crate::common::{
+        macros::error_spanned,
+        tests::macros::*
+    };
 
     use quote::quote;
     use syn::parse_quote;
