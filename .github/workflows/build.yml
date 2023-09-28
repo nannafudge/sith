@@ -23,19 +23,20 @@ jobs:
       with:
         version: '0.18.1'
         out-type: lcov
+        args: html
     - name: Parse Coverage Total
       id: cov_gen
       run: >
-        yarn install lcov-total &&
+        yarn add lcov-total &&
         echo coverage=$(npx lcov-total ${{ github.workspace }}/lcov.info) >> "$GITHUB_OUTPUT"
     - name: Create Coverage Badge
       run: >
-        yarn install badge-maker &&
+        yarn add badge-maker &&
         npx badge Coverage "${{ steps.cov_gen.outputs.coverage }}%"
         ${{ steps.cov_gen.outputs.coverage < 25 && 'red' || 
-            steps.cov_gen.outputs.coverage < 50 && 'orange' ||
-            steps.cov_gen.outputs.coverage < 75 && 'yellow' ||
-            'green' }} >> ${{ github.workspace }}/coverage.svg
+          steps.cov_gen.outputs.coverage < 50 && 'orange' ||
+          steps.cov_gen.outputs.coverage < 75 && 'yellow' ||
+          'green' }} >> ${{ github.workspace }}/coverage.svg
     - name: Upload Coverage Badge
       uses: exuanbo/actions-deploy-gist@v1
       with:
@@ -47,4 +48,6 @@ jobs:
       uses: actions/upload-artifact@v3
       with:
         name: test-results
-        path: ${{ github.workspace }}/lcov.info
+        path: | 
+          ${{ github.workspace }}/lcov.info
+          ${{ github.workspace }}/tarpaulin-report.html
