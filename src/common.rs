@@ -111,77 +111,53 @@ pub(crate) mod tests {
     mod attribute_name_to_string {
         use super::*;
 
-        use syn::{
-            AttrStyle, Path, Meta,
-            punctuated::Punctuated
-        };
+        use syn::AttrStyle;
 
         #[test]
         fn ident() {
-            let attr = construct_attribute!(
-                AttrStyle::Outer,
-                construct_attribute_meta!(test)
-            );
+            let attr = construct_attribute!(AttrStyle::Outer, test);
 
             assert_eq!(attribute_name_to_string(&attr).as_str(), "test");
         }
 
         #[test]
         fn ident_path() {
-            let attr = construct_attribute!(
-                AttrStyle::Outer,
-                construct_attribute_meta!(my::path::to::test)
-            );
+            let attr = construct_attribute!(AttrStyle::Outer, my::path::to::test);
 
             assert_eq!(attribute_name_to_string(&attr).as_str(), "test");
         }
 
         #[test]
         fn list() {
-            let attr = construct_attribute!(
-                AttrStyle::Outer,
-                construct_attribute_meta!(test(one, two))
-            );
+            let attr = construct_attribute!(AttrStyle::Outer, test(one, two));
 
             assert_eq!(attribute_name_to_string(&attr).as_str(), "test");
         }
 
         #[test]
         fn list_path() {
-            let attr = construct_attribute!(
-                AttrStyle::Outer,
-                construct_attribute_meta!(path::to::my::test(one, two))
-            );
+            let attr = construct_attribute!(AttrStyle::Outer, path::to::my::test(one, two));
 
             assert_eq!(attribute_name_to_string(&attr).as_str(), "test");
         }
 
         #[test]
         fn name_value() {
-            let attr = construct_attribute!(
-                AttrStyle::Outer,
-                construct_attribute_meta!(test = 123)
-            );
+            let attr = construct_attribute!(AttrStyle::Outer, test = 123);
 
             assert_eq!(attribute_name_to_string(&attr).as_str(), "test");
         }
 
         #[test]
         fn name_value_path() {
-            let attr = construct_attribute!(
-                AttrStyle::Outer,
-                construct_attribute_meta!(path::to::my::test = 123)
-            );
+            let attr = construct_attribute!(AttrStyle::Outer, path::to::my::test = 123);
 
             assert_eq!(attribute_name_to_string(&attr).as_str(), "test");
         }
 
         #[test]
         fn empty() {
-            let attr = construct_attribute!(
-                AttrStyle::Outer,
-                Meta::Path(Path{ leading_colon: None, segments: Punctuated::new() })
-            );
+            let attr = construct_attribute!(AttrStyle::Outer);
 
             assert_eq!(attribute_name_to_string(&attr).as_str(), "");
         }
@@ -507,19 +483,16 @@ pub(crate) mod tests {
 
     pub(crate) mod macros {
         macro_rules! construct_attribute {
-            ($style:expr, $meta:expr) => {
+            ($style:expr, $($meta:tt)*) => {
                 syn::Attribute {
                     pound_token: syn::token::Pound::default(),
                     style: $style,
                     bracket_token: syn::token::Bracket::default(),
-                    meta: $meta
+                    meta: syn::parse2::<syn::Meta>(quote::quote!($($meta)*)).expect("Invalid attribute meta")
                 }
             };
-        }
-
-        macro_rules! construct_attribute_meta {
-            ($($tokens:tt)*) => {
-                syn::parse2::<syn::Meta>(quote::quote!($($tokens)*)).expect("Invalid attribute meta")
+            ($style:expr) => {
+                construct_attribute!($style, )
             };
         }
 
@@ -540,6 +513,5 @@ pub(crate) mod tests {
 
         pub(crate) use assert_eq_parsed;
         pub(crate) use construct_attribute;
-        pub(crate) use construct_attribute_meta;
     }
 }
