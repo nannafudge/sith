@@ -64,11 +64,18 @@ pub(crate) mod macros {
         ($error:literal) => {
             syn::Error::new(proc_macro2::Span::call_site(), $error)
         };
-        ($error:literal, $item:expr) => {
-            syn::Error::new(syn::spanned::Spanned::span($item), $error)
+        ($error:literal, $spanned:expr $(, $others:expr )*) => {
+            syn::Error::new(
+                syn::spanned::Spanned::span($spanned)
+                $(
+                    .join(syn::spanned::Spanned::span($others)).unwrap()
+                )*,
+                $error
+            )
         };
         (format!($formatter:literal), $item:expr $(, $other_items:expr )*) => {
-            syn::Error::new(syn::spanned::Spanned::span($item), &format!(
+            syn::Error::new(
+                syn::spanned::Spanned::span($item), &format!(
                 $formatter $(, $other_items)*
             ))
         };
@@ -525,12 +532,25 @@ pub(crate) mod tests {
             ($left:expr, Err($right:expr)) => {
                 match &$left {
                     Err(left) if left.to_compile_error().to_string().eq(&$right.to_compile_error().to_string()) => {},
-                    _ => panic!("assertion failed:\nleft: {:?}\nright: Err({})", &$left, &$right.to_compile_error())
+                    _ => panic!("assertion failed:\nleft: {:?}\nright: Err({:?})", &$left, &$right)
                 };
             };
         }
 
+        macro_rules! assert_eq_tokens {
+            ($left:expr, $right:expr) => {
+                if $left.to_token_stream().to_string().ne(&$right.to_token_stream().to_string()) {
+                    panic!(
+                        "assertion failed:\nleft: {}\nright: Ok({})",
+                        &$left.to_token_stream(),
+                        &$right.to_token_stream()
+                    );
+                }
+            };
+        }
+
         pub(crate) use assert_eq_parsed;
+        pub(crate) use assert_eq_tokens;
         pub(crate) use construct_attribute;
     }
 }

@@ -15,7 +15,7 @@ use syn::{
     }
 };
 use super::{
-    ParamWithInner, parse_rust_fn_input
+    ParamWithInner, split_rust_fn_input
 };
 use crate::{
     common::macros::error_spanned,
@@ -38,7 +38,7 @@ impl Mutate for ParamVerbatim {
     type Item = ItemFn;
 
     fn mutate(&self, target: &mut Self::Item) -> Result<()> {
-        match parse_rust_fn_input(target.sig.inputs.pop().as_mut())? {
+        match split_rust_fn_input(target.sig.inputs.pop().as_mut())? {
             (_, Pat::Ident(def), Type::Infer(_)) => {
                 for stmt in &mut target.block.stmts {
                     let tokens = recursive_descent_replace(

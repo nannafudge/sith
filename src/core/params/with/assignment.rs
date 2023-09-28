@@ -12,13 +12,10 @@ use quote::{
     ToTokens, TokenStreamExt
 };
 use super::{
-    ParamWithInner, parse_rust_fn_input
+    ParamWithInner, split_rust_fn_input
 };
-use crate::{
-    common::macros::error_spanned,
-    params::{
-        Mutate, macros::*
-    }
+use crate::params::{
+    Mutate, macros::*
 };
 
 #[derive(Clone)]
@@ -35,8 +32,10 @@ impl Mutate for ParamAssignment {
 
     fn mutate(&self, target: &mut Self::Item) -> Result<()> {
         let mut fn_input = target.sig.inputs.pop();
-        let (attrs, Pat::Ident(def), ty) = parse_rust_fn_input(fn_input.as_mut())? else {
-            return Err(error_spanned!("expected identifier", &fn_input));
+        let (attrs, Pat::Ident(def), ty) = split_rust_fn_input(fn_input.as_mut())? else {
+            // https://doc.rust-lang.org/reference/items/functions.html
+            // Sig may only contain: (SelfParam[0..1], FunctionParam[0..n])
+            unreachable!("Rust syntax should not allow any `Pat` but `Pat::Ident` in fn inputs");
         };
 
         // If mut override is present, ensure it's set
@@ -68,30 +67,208 @@ impl_param!(ParamAssignment, 0, 1);
 mod tests {
     use super::*;
     use crate::common::tests::macros::*;
+    use self::macros::*;
 
     use quote::quote;
-    
+    use syn::parse_quote;
+
     #[test]
-    fn parse_enum_variant() {
+    fn parse_input_primitive() {
+        assert_eq_parsed!(
+            syn::parse2::<ParamAssignment>(quote!(0)),
+            Ok(quote!(0))
+        );
+        assert_eq_parsed!(
+            syn::parse2::<ParamAssignment>(quote!("test")),
+            Ok(quote!("test"))
+        );
+    }
+
+    #[test]
+    fn parse_input_enum_variant() {
         assert_eq_parsed!(
             syn::parse2::<ParamAssignment>(quote!(Option::Some(0))),
             Ok(quote!(Option::Some(0)))
         );
+        assert_eq_parsed!(
+            syn::parse2::<ParamAssignment>(quote!(Matrix::M3{x: 0, y: 0, z: 0})),
+            Ok(quote!(Matrix::M3{x: 0, y: 0, z: 0}))
+        );
+    }
+    
+    #[test]
+    fn parse_input_named_tuple() {
+        assert_eq_parsed!(
+            syn::parse2::<ParamAssignment>(quote!(
+                MyStruct::<'static, str>("test", (0, 1))
+            )),
+            Ok(quote!(
+                MyStruct::<'static, str>("test", (0, 1))
+            ))
+        );
+
+        assert_eq_parsed!(
+            syn::parse2::<ParamAssignment>(quote!(
+                MyStruct::<'static, str>{a: &"test", b:(0, 1)}
+            )),
+            Ok(quote!(
+                MyStruct::<'static, str>{a: &"test", b:(0, 1)}
+            ))
+        );
     }
 
-    fn parse_struct_tuple() {
-
+    #[test]
+    fn parse_input_with_instantiation_methods() {
+        assert_eq_parsed!(
+            syn::parse2::<ParamAssignment>(quote!(
+                MyStruct::<'static, str>::new("test", (0, 1))
+            )),
+            Ok(quote!(
+                MyStruct::<'static, str>::new("test", (0, 1))
+            ))
+        );
     }
 
-    fn parse_struct_new() {
-
+    #[test]
+    fn parse_input_ref() {
+        assert_eq_parsed!(
+            syn::parse2::<ParamAssignment>(quote!(
+                &mut MyStruct::<'static, str>::new("test", (0, 1))
+            )),
+            Ok(quote!(
+                &mut MyStruct::<'static, str>::new("test", (0, 1))
+            ))
+        );
     }
 
-    fn parse_primitive() {
-
-    }
-
+    #[test]
     fn parse_with_mut_override() {
+        assert_eq_parsed!(
+            syn::parse2::<ParamAssignment>(quote!(mut usize::default())),
+            Ok(quote!(mut usize::default()))
+        );
+    }
 
+    #[test]
+    fn parse_empty() {
+        assert!(syn::parse2::<ParamAssignment>(quote!()).is_err());
+    }
+
+    #[test]
+    fn mutate_accepts_infer_type() {
+        let mut target: ItemFn = parse_quote!{
+            fn input(input: _) {}
+        };
+
+        let param: ParamAssignment = ParamAssignment(None, parse_quote!("test"));
+        assert_eq_mutate!(param, &mut target, Ok(()));
+
+        assert_eq_tokens!(
+            target.block.stmts[0],
+            quote!(let input: _ = "test";)
+        );
+    }
+
+    #[test]
+    fn mutate_propagates_attributes() {
+        let mut target: ItemFn = parse_quote!{
+            fn input(#[my_attr] input: bool) {}
+        };
+
+        let param: ParamAssignment = ParamAssignment(None, parse_quote!(true));
+        assert_eq_mutate!(param, &mut target, Ok(()));
+
+        assert_eq_tokens!(
+            target.block.stmts[0],
+            quote!{
+                #[my_attr]
+                let input: bool = true;
+            }
+        );
+    }
+
+    #[test]
+    fn mutate_propagates_lifetimes() {
+        let mut target_lifetimed: ItemFn = parse_quote!{
+            fn input(input: &'static MyStruct) {}
+        };
+
+        assert_eq_mutate!(
+            ParamAssignment(None, parse_quote!(
+                &MyStruct::<'static, str>("test")
+            )),
+            &mut target_lifetimed, Ok(())
+        );
+
+        assert_eq_tokens!(
+            target_lifetimed.block.stmts[0],
+            quote!(
+                let input: &'static MyStruct = &MyStruct::<'static, str>("test");
+            )
+        );
+    }
+
+    #[test]
+    fn mutate_with_mut_override_and_nonexisting_mut_input() {
+        let mut target_nonexisting_mut: ItemFn = parse_quote!{
+            fn input(input: usize) {}
+        };
+
+        let param: ParamAssignment = ParamAssignment(parse_quote!(mut), parse_quote!(123));
+        assert_eq_mutate!(param, &mut target_nonexisting_mut, Ok(()));
+
+        assert_eq_tokens!(
+            target_nonexisting_mut.block.stmts[0],
+            quote!(let mut input: usize = 123;)
+        );
+    }
+
+    #[test]
+    fn mutate_with_mut_override_and_existing_mut_input() {
+        let mut target_existing_mut: ItemFn = parse_quote!{
+            fn input(mut input: usize) {}
+        };
+
+        let param: ParamAssignment = ParamAssignment(parse_quote!(mut), parse_quote!(123));
+        assert_eq_mutate!(param, &mut target_existing_mut, Ok(()));
+
+        assert_eq_tokens!(
+            target_existing_mut.block.stmts[0],
+            quote!(let mut input: usize = 123;)
+        );
+    }
+
+    #[test]
+    fn mutate_no_fn_inputs() {
+        let mut target: ItemFn = parse_quote!{
+            fn input() {}
+        };
+
+        assert_eq_mutate!(
+            ParamAssignment(None, parse_quote!(0)), &mut target,
+            Err(error_spanned!("no corresponding input"))
+        );
+    }
+
+    mod macros {
+        macro_rules! assert_eq_mutate {
+            ($mutator:expr, $target:expr, Ok(())) => {
+                if let Err(e) = &$mutator.mutate($target) {
+                    panic!("assertion failed:\nleft: Ok(())\nright: Err({:?})", &e)
+                }
+            };
+            ($mutator:expr, $target:expr, Err($right:expr)) => {
+                match &$mutator.mutate($target) {
+                    Err(e) => {
+                        if !e.to_compile_error().to_string().eq(&$right.to_compile_error().to_string()) {
+                            panic!("assertion failed:\nleft: {:?}\nright: {:?}", &e, &$right)
+                        }
+                    },
+                    _ => panic!("assertion failed:\nleft: Ok(())\nright: Err({:?})", &$right)
+                };
+            };
+        }
+
+        pub(crate) use assert_eq_mutate;
     }
 }

@@ -117,7 +117,7 @@ impl Mutate for ParamWith {
 impl_unique!(ParamWith);
 impl_param!(ParamWith, iterable(0));
 
-fn parse_rust_fn_input(fn_param: Option<&mut Pair<FnArg, Comma>>) -> Result<(&mut [Attribute], &mut Pat, &mut Type)> {
+fn split_rust_fn_input(fn_param: Option<&mut Pair<FnArg, Comma>>) -> Result<(&mut [Attribute], &mut Pat, &mut Type)> {
     match fn_param {
         Some(Pair::Punctuated(param, _)) | Some(Pair::End(param)) => {
             if let FnArg::Typed(typed) = param {
@@ -137,7 +137,7 @@ mod tests {
     use super::*;
     use crate::common::tests::macros::*;
     
-    mod parse_rust_fn_input {
+    mod split_rust_fn_input {
         use super::*;
 
         use syn::{
@@ -149,7 +149,7 @@ mod tests {
 
         macro_rules! assert_fn_inputs_eq {
             ($target:expr, Ok($attrs:expr, $pat:expr, $ty:expr)) => {
-                match parse_rust_fn_input($target.as_mut()) {
+                match split_rust_fn_input($target.as_mut()) {
                     Ok((attrs, pat, ty)) => {
                         assert_eq!(attrs.len(), $attrs.len());
                         attrs.iter().zip($attrs).for_each(| (left, right) | {
@@ -164,7 +164,7 @@ mod tests {
                 };
             };
             ($target:expr, Err($err:expr)) => {
-                match parse_rust_fn_input($target.as_mut()) {
+                match split_rust_fn_input($target.as_mut()) {
                     Ok((attrs, pat, ty)) => {
                         panic!(
                             "Expected err, received {} {} {}",
