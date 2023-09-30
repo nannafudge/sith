@@ -223,7 +223,13 @@ fn is_test_attribute(attributes: &[Attribute]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::common::{tests::macros::*, macros::error_spanned};
+    use crate::{
+        common::{
+            macros::error_spanned,
+            tests::macros::*
+        },
+        core::tests::macros::*
+    };
 
     use quote::quote;
     use syn::parse_quote;

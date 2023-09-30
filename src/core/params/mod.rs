@@ -126,3 +126,35 @@ pub(crate) mod macros {
     pub(crate) use impl_param;
     pub(crate) use impl_unique;
 }
+
+#[cfg(test)]
+pub(crate) mod tests {
+    pub(crate) mod macros {
+        macro_rules! assert_mutator_order {
+            ($ty:ident($target:expr) $(, $param:pat)+) => {
+                {
+                    let params: Vec<&$ty> = $target.iter().collect();
+                    let mut param_count = 0;
+                    $(
+                        #[allow(unused_assignments)]
+                        match params[param_count] {
+                            $param => {
+                                param_count += 1;
+                            },
+                            _ => {
+                                panic!(
+                                    "{} should be rank {}, found {:?}",
+                                    stringify!($param), param_count,
+                                    params[param_count]
+                                );
+                            }
+                        }
+
+                    )+
+                }
+            };
+        }
+
+        pub(crate) use assert_mutator_order;
+    }
+}

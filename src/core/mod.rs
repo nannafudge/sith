@@ -57,3 +57,28 @@ mod macros {
 
     pub(crate) use rustc_test_attribute;
 }
+
+#[cfg(test)]
+pub(crate) mod tests {
+    pub(crate) mod macros {
+        macro_rules! assert_eq_mutate {
+            ($mutator:expr, $target:expr, Ok(())) => {
+                if let Err(e) = &$mutator.mutate($target) {
+                    panic!("assertion failed:\nleft: Ok(())\nright: Err({:?})", &e)
+                }
+            };
+            ($mutator:expr, $target:expr, Err($right:expr)) => {
+                match &$mutator.mutate($target) {
+                    Err(e) => {
+                        if !e.to_compile_error().to_string().eq(&$right.to_compile_error().to_string()) {
+                            panic!("assertion failed:\nleft: {:?}\nright: {:?}", &e, &$right)
+                        }
+                    },
+                    _ => panic!("assertion failed:\nleft: Ok(())\nright: Err({:?})", &$right)
+                };
+            };
+        }
+
+        pub(crate) use assert_eq_mutate;
+    }
+}

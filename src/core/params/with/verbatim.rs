@@ -95,7 +95,10 @@ fn recursive_descent_replace(input: &mut Cursor, pattern: &Ident, substitute: &T
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::common::tests::macros::*;
+    use crate::{
+        common::tests::macros::*,
+        core::tests::macros::*
+    };
     
     use quote::quote;
     use syn::parse_quote;

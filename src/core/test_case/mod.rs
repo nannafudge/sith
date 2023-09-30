@@ -9,7 +9,8 @@ use syn::{
     parse::{
         Parse, ParseStream
     },
-    spanned::Spanned
+    spanned::Spanned,
+    token::Paren
 };
 use crate::{
     common::{
@@ -33,7 +34,7 @@ use crate::{
 };
 
 #[repr(u8)]
-#[derive(Clone, PartialEq, PartialOrd, Eq, Ord)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord)]
 enum TestMutator {
     // Mutators should be defined in the order they must apply
     ParamName(ParamName),
@@ -71,6 +72,12 @@ impl Parse for TestMutator {
                 Ok(TestMutator::ParamWith(parse_param_args(input)?))
             },
             _ => {
+                if input.peek(Paren) {
+                    return Err(
+                        error_spanned!("unrecognized arg", &input.span())
+                    );
+                }
+
                 // Assume the ident is the test name
                 Ok(TestMutator::ParamName(ParamName(name)))
             }
@@ -94,9 +101,12 @@ impl Mutate for TestCase {
 }
 
 impl Parse for TestCase {
+    // Attributes are stripped of their outer tokens & name
+    // in #[proc_macro_attribute], so TestCase::parse only
+    // parses the inner tokens
     fn parse(input: ParseStream) -> Result<Self> {
         let mut mutators: Mutators<TestMutator> = Mutators::new();
-        
+
         while !input.is_empty() {
             mutators.insert_unique(input.parse::<TestMutator>()?)?;
 
@@ -152,4 +162,97 @@ pub fn render_test_case(test_case_: TestCase, mut target: ItemFn) -> TokenStream
     }
 
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        common::{
+            macros::error_spanned,
+            tests::macros::*
+        },
+        params::tests::macros::*
+    };
+
+    use quote::quote;
+    use syn::parse_quote;
+
+    fn subparams() -> TokenStream {
+        quote!{
+            test, // Name: v0.1.0
+            with() // With: v0.1.0
+        }
+    }
+
+    #[test]
+    fn test_mutators_are_ordered_correctly() {
+        let mutators: Mutators<TestMutator> = Mutators::from(
+            [
+                TestMutator::ParamWith(parse_quote!(with())),
+                TestMutator::ParamName(ParamName(parse_quote!(test)))
+            ]
+        );
+
+        assert_mutator_order!(
+            TestMutator(mutators), TestMutator::ParamName(_), TestMutator::ParamWith(_)
+        );
+    }
+
+    #[test]
+    fn parse_works_with_all_subparams() {
+        let Result::Ok(test_case) = syn::parse2::<TestCase>(subparams()) else {
+            panic!("Failed to parse Testcase with: {}", subparams());
+        };
+
+        assert_mutator_order!(
+            TestMutator(test_case.0),
+            TestMutator::ParamName(_),
+            TestMutator::ParamWith(_)
+        );
+    }
+
+    #[test]
+    fn parse_works_with_no_subparams() {
+        assert_eq_parsed!(
+            syn::parse2::<TestCase>(quote!()),
+            Ok(quote!())
+        );
+    }
+
+    #[test]
+    fn parse_returns_error_on_unrecognized_subparam() {
+        assert_eq_parsed!(
+            syn::parse2::<TestCase>(quote!{
+                foobar()
+            }),
+            Err(error_spanned!("unrecognized arg"))
+        );
+    }
+
+    #[test]
+    fn mutate_works_with_empty_target_functions() {
+        let Result::Ok(test_case) = syn::parse2::<TestCase>(subparams()) else {
+            panic!("Failed to parse Testcase with: {}", subparams());
+        };
+
+        let mut target: ItemFn = parse_quote!{
+            fn test() {}
+        };
+
+        assert!(test_case.mutate(&mut target).is_ok());
+        // Ideally would be able to test that #[test_case] invokes each mutator (once),
+        // but the lack of mocking utilities + current architecture makes this impossible
+        // It would be pretty apparenty if it weren't, however (stuff would break in integration tests)
+    }
+
+    #[test]
+    fn mutate_is_ok_with_no_mutators() {
+        let test_case: TestCase = parse_quote!();
+        let mut target: ItemFn = parse_quote!{
+            fn test() {}
+        };
+
+        assert!(test_case.mutate(&mut target).is_ok());
+    }
 }
