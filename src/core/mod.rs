@@ -60,6 +60,20 @@ mod macros {
 
 #[cfg(test)]
 pub(crate) mod tests {
+    use super::*;
+    use crate::common::tests::macros::assert_eq_parsed;
+
+    #[test]
+    fn insert_unique_returns_error_if_item_exists() {
+        let mut mutators: Mutators<usize> = Mutators::new();
+
+        assert!(mutators.insert_unique(0).is_ok());
+        assert_eq_parsed!(
+            mutators.insert_unique(0),
+            Err(error_spanned!("duplicate parameter"))
+        );
+    }
+
     pub(crate) mod macros {
         macro_rules! assert_eq_mutate {
             ($mutator:expr, $target:expr, Ok(())) => {

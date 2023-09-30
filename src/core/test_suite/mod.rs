@@ -28,7 +28,10 @@ use crate::{
     params::{
         setup::*, teardown::*
     },
-    common::{attribute_name_to_string, macros::error_spanned}
+    common::{
+        attribute_name_to_string,
+        macros::error_spanned
+    }
 };
 
 #[repr(u8)]
@@ -180,6 +183,21 @@ impl TestSuite {
     pub const TEARDOWN_IDENT: &'static str = "teardown";
 }
 
+fn render_mod_name(test_suite: &TestSuite, tokens: &mut TokenStream) {
+    Mod::default().to_tokens(tokens);
+    test_suite.name.to_tokens(tokens);
+}
+
+fn is_test_attribute(attributes: &[Attribute]) -> bool {
+    attributes.iter()
+        .map(attribute_name_to_string)
+        .any(| name | {
+            name.as_str() == TestCase::SITH_TEST_IDENT ||
+            name.as_str() == TestCase::RUSTC_TEST_IDENT ||
+            name.as_str() == TestCase::WASM_TEST_IDENT
+        })
+}
+
 pub fn render_test_suite(mut test_suite: TestSuite) -> TokenStream {
     let Option::Some(mut contents) = take(&mut test_suite.contents) else {
         return test_suite.to_token_stream();
@@ -203,21 +221,6 @@ pub fn render_test_suite(mut test_suite: TestSuite) -> TokenStream {
     });
 
     suite_out
-}
-
-fn render_mod_name(test_suite: &TestSuite, tokens: &mut TokenStream) {
-    Mod::default().to_tokens(tokens);
-    test_suite.name.to_tokens(tokens);
-}
-
-fn is_test_attribute(attributes: &[Attribute]) -> bool {
-    attributes.iter()
-        .map(attribute_name_to_string)
-        .any(| name | {
-            name.as_str() == TestCase::SITH_TEST_IDENT ||
-            name.as_str() == TestCase::RUSTC_TEST_IDENT ||
-            name.as_str() == TestCase::WASM_TEST_IDENT
-        })
 }
 
 #[cfg(test)]
