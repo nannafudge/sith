@@ -2,6 +2,14 @@
 name = "sith"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
+readme = "README.md"
+
+homepage = "https://github.com/nannafudge/sith"
+repository = "https://github.com/nannafudge/sith"
+description = "Framework for building parameterized tests and suites thereof"
+keywords = ["test", "testing", "test-case", "test-suite", "proc-macro"]
+categories = ["development-tools::testing"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
