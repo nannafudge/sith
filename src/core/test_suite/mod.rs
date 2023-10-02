@@ -12,7 +12,7 @@ use syn::{
     }, 
     token::{
         Mod, Brace
-    }
+    }, ItemStatic, Expr
 };
 use core::{
     fmt::{
@@ -124,22 +124,26 @@ impl Parse for TestSuite {
         };
 
         let mut mutators: Mutators<SuiteMutator> = Mutators::new();
-
-        // TODO: Make suites composable using 'use', where setup/teardown
-        // functions are combined into one as an inheritable strategy
-        // TODO: Detect #[setup]/#[teardown] on invalid Items, reporting such correctly
         // TODO: Create 'safe remove' iterator type
         let mut removed_elements: usize = 0;
+        // TODO: Detect #[setup]/#[teardown] on invalid Items, reporting such correctly
         for i in 0..contents.1.len() {
-            let Item::Fn(item) = &mut contents.1[i - removed_elements] else {
-                continue;
+            let real_index = i - removed_elements;
+            match &mut contents.1[real_index] {
+                Item::Fn(item) => {
+                    if let Some(mutator) = SuiteMutator::new_from(item) {
+                        mutators.insert_unique(mutator)?;
+                        remove_contents(&mut contents.1, &mut removed_elements, real_index);
+                    }
+                },
+                Item::Static(ItemStatic { expr, .. }) if should_setup(expr) => {
+                    remove_contents(&mut contents.1,  &mut removed_elements, real_index);
+                },
+                _ => {
+                    continue;
+                }
             };
 
-            if let Some(mutator) = SuiteMutator::new_from(item) {
-                mutators.insert_unique(mutator)?;
-                contents.1.remove(i - removed_elements);
-                removed_elements += 1;
-            }
         }
 
         Ok(Self {
@@ -181,6 +185,19 @@ impl Debug for TestSuite {
 impl TestSuite {
     pub const SETUP_IDENT: &'static str = "setup";
     pub const TEARDOWN_IDENT: &'static str = "teardown";
+}
+
+fn remove_contents(contents: &mut Vec<syn::Item>, removed_elements: &mut usize, index: usize) {
+    contents.remove(index);
+    *removed_elements += 1;
+}
+
+fn should_setup(item: &Expr) -> bool {
+    let Expr::Path(expr_path) = item else {
+        return false;
+    };
+
+    expr_path.path.get_ident().is_some_and(| name | &name.to_string() == "setup")
 }
 
 fn render_mod_name(test_suite: &TestSuite, tokens: &mut TokenStream) {
