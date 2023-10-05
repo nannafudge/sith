@@ -11,15 +11,14 @@ use syn::{
 use quote::{
     ToTokens, TokenStreamExt
 };
-use super::{
-    ParamWithInner, split_rust_fn_input
-};
 use crate::{
     common::macros::error_spanned,
     params::{
-        Mutate, macros::*
+        Mutate, macros::*,
+        split_rust_fn_input
     }
 };
+use super::ParamWithInner;
 
 #[derive(Clone)]
 pub(crate) struct ParamAssignment(Option<Mut>, Expr);
@@ -69,7 +68,8 @@ impl From<ParamAssignment> for ParamWithInner {
     }
 }
 
-impl_param!(ParamAssignment, 0, 1);
+impl_param!(debug(ParamAssignment, 0, 1));
+impl_param!(to_tokens(ParamAssignment, 0, 1));
 
 #[cfg(test)]
 mod tests {

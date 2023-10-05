@@ -27,9 +27,9 @@ use crate::{
         macros::*
     },
     params::{
-        macros::impl_param,
         parse_param_args,
-        name::*, with::*
+        name::*, with::*,
+        macros::*
     }
 };
 
@@ -124,9 +124,21 @@ impl TestCase {
     pub const SITH_TEST_IDENT: &'static str = "test_case";
     pub const RUSTC_TEST_IDENT: &'static str = "test";
     pub const WASM_TEST_IDENT: &'static str = "wasm_bindgen_test";
+
+    pub fn is_test(item: &ItemFn) -> bool {
+        item.attrs.iter()
+            .map(attribute_name_to_string)
+            .any(| name | {
+                name.as_str() == TestCase::SITH_TEST_IDENT ||
+                name.as_str() == TestCase::RUSTC_TEST_IDENT ||
+                name.as_str() == TestCase::WASM_TEST_IDENT
+            }
+        )
+    }
 }
 
-impl_param!(TestCase, iterable(0));
+impl_param!(debug(TestCase, iterable(0)));
+impl_param!(to_tokens(TestCase, iterable(0)));
 
 pub fn render_test_case(test_case_: TestCase, mut target: ItemFn) -> TokenStream {
     let mut out: TokenStream = TokenStream::new();
@@ -254,5 +266,50 @@ mod tests {
         };
 
         assert!(test_case.mutate(&mut target).is_ok());
+    }
+
+    #[test]
+    fn recognizes_test_case() {
+        assert!(TestCase::is_test(
+            &parse_quote!{
+                #[test_case]
+                fn my_test() {}
+            }
+        ));
+    }
+
+    #[test]
+    fn recognizes_test() {
+        assert!(TestCase::is_test(
+            &parse_quote!{
+                #[test]
+                fn my_test() {}
+            }
+        ));
+    }
+
+    #[test]
+    fn recognizes_wasm_bindgen_test() {
+        assert!(TestCase::is_test(
+            &parse_quote!{
+                #[wasm_bindgen_test]
+                fn my_test() {}
+            }
+        ));
+    }
+
+    #[test]
+    fn does_not_recognize_other_attributes_named_test() {
+        assert!(
+            !TestCase::is_test(
+                &parse_quote!{
+                    #[foo_test]
+                    #[test_bar]
+                    #[test_]
+                    #[_test]
+                    fn my_test() {}
+                }
+            )
+        );
     }
 }

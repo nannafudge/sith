@@ -114,116 +114,11 @@ impl Mutate for ParamWith {
 }
 
 impl_unique!(ParamWith);
-impl_param!(ParamWith, iterable(0));
-
-fn split_rust_fn_input(fn_param: Option<&mut Pair<FnArg, Comma>>) -> Result<(&mut [Attribute], &mut Pat, &mut Type)> {
-    match fn_param {
-        Some(Pair::Punctuated(param, _)) | Some(Pair::End(param)) => {
-            if let FnArg::Typed(typed) = param {
-                return Ok((typed.attrs.as_mut_slice(), &mut *typed.pat, &mut *typed.ty));
-            }
-
-            Err(error_spanned!("invalid parameter", &param))
-        },
-        _ => {
-            Err(error_spanned!("no corresponding input", &fn_param))
-        }
-    }
-}
+impl_param!(debug(ParamWith, iterable(0)));
+impl_param!(to_tokens(ParamWith, iterable(0)));
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::common::tests::macros::*;
-    
-    mod split_rust_fn_input {
-        use super::*;
-
-        use syn::{
-            Signature, AttrStyle,
-            parse_quote
-        };
-
-        const EMPTY_ATTRS: [syn::Attribute; 0] = [];
-
-        macro_rules! assert_fn_inputs_eq {
-            ($target:expr, Ok($attrs:expr, $pat:expr, $ty:expr)) => {
-                match split_rust_fn_input($target.as_mut()) {
-                    Ok((attrs, pat, ty)) => {
-                        assert_eq!(attrs.len(), $attrs.len());
-                        attrs.iter().zip($attrs).for_each(| (left, right) | {
-                            assert_eq!(left.to_token_stream().to_string(), right.to_token_stream().to_string());
-                        });
-                        assert_eq!(pat.to_token_stream().to_string(), $pat);
-                        assert_eq!(ty.to_token_stream().to_string(), $ty);
-                    },
-                    Err(e) => {
-                        panic!("{:?}", e.to_compile_error().to_token_stream().to_string());
-                    }
-                };
-            };
-            ($target:expr, Err($err:expr)) => {
-                match split_rust_fn_input($target.as_mut()) {
-                    Ok((attrs, pat, ty)) => {
-                        panic!(
-                            "Expected err, received {} {} {}",
-                            attrs.iter().fold(String::new(), | mut acc, a | {
-                                acc += &a.to_token_stream().to_string();
-                                acc
-                            }),
-                            pat.to_token_stream().to_string(),
-                            ty.to_token_stream().to_string()
-                        );
-                    },
-                    Err(e) => {
-                        assert_eq!(e.to_compile_error().to_string(), $err.to_compile_error().to_string())
-                    }
-                };
-            }
-        }
-
-        #[test]
-        fn parses_explicit_type_annotation() {
-            let mut sig: Signature = parse_quote!{
-                fn _test(one: usize)
-            };
-
-            assert_fn_inputs_eq!(sig.inputs.pop(), Ok(EMPTY_ATTRS, "one", "usize"));
-        }
-
-        #[test]
-        fn parses_ducked_type_annotation() {
-            let mut sig: Signature = parse_quote!{
-                fn _test(one: _)
-            };
-
-            assert_fn_inputs_eq!(sig.inputs.pop(), Ok(EMPTY_ATTRS, "one", "_"));
-        }
-
-        #[test]
-        fn parses_outer_attribute() {
-            let mut sig: Signature = parse_quote!{
-                fn _test(#[my_attr] one: String)
-            };
-            let attributes = [
-                construct_attribute!(AttrStyle::Outer, my_attr)
-            ];
-
-            assert_fn_inputs_eq!(sig.inputs.pop(), Ok(attributes, "one", "String"));
-        }
-
-        #[test]
-        fn returns_error_on_self_fn_parameter() {
-            let mut sig: Signature = parse_quote!{
-                fn _test(self)
-            };
-
-            assert_fn_inputs_eq!(sig.inputs.pop(), Err(error_spanned!("invalid parameter")));
-        }
-
-        #[test]
-        fn returns_error_when_no_bindings_provided() {
-            assert_fn_inputs_eq!(None, Err(error_spanned!("no corresponding input")));
-        }
-    }
 }

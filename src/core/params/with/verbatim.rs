@@ -14,15 +14,15 @@ use syn::{
         TokenBuffer, Cursor
     }
 };
-use super::{
-    ParamWithInner, split_rust_fn_input
-};
 use crate::{
     common::macros::error_spanned,
     params::{
-        Mutate, macros::*, parse_param_args
+        Mutate, macros::*,
+        split_rust_fn_input,
+        parse_param_args
     }
 };
+use super::ParamWithInner;
 
 #[derive(Clone)]
 pub(crate) struct ParamVerbatim(TokenStream);
@@ -64,7 +64,8 @@ impl From<ParamVerbatim> for ParamWithInner {
     }
 }
 
-impl_param!(ParamVerbatim, 0);
+impl_param!(debug(ParamVerbatim, 0));
+impl_param!(to_tokens(ParamVerbatim, 0));
 
 fn recursive_descent_replace(input: &mut Cursor, pattern: &Ident, substitute: &TokenStream) -> TokenStream {
     let mut out = TokenStream::new();

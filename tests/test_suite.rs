@@ -2,27 +2,32 @@ use sith::test_suite;
 
 #[test_suite]
 mod supports_rustc_test {
-    static global: usize = setup;
-    static ree: usize = setup;
+    static MEME: usize = INIT;
+    static MEMETWO: usize = INIT;
+
+    #[init]
+    fn init() {
+        MEME = 123;
+        MEMETWO = 456;
+    }
 
     #[setup]
-    const fn setup() {
+    fn setup() {
         let has_ran_setup = true;
-
-        let global = 0;
-        let ree = 23;
     }
 
     #[teardown]
     fn teardown() {
         assert!(post_setup);
-        println!("{}", global);
     }
 
     #[test]
     fn inner() {
         assert!(has_ran_setup);
         let post_setup = true;
+
+        println!("{}", MEME);
+        println!("{}", MEMETWO);
     }
 }
 

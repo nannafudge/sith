@@ -1,18 +1,19 @@
 use proc_macro2::TokenStream;
 
 use quote::{
-    ToTokens, TokenStreamExt
+    ToTokens, TokenStreamExt,
+    quote
 };
 use syn::{
-    Attribute,
     Result, Ident,
     ItemMod, Item, ItemFn,
     parse::{
         Parse, ParseStream
     }, 
     token::{
-        Mod, Brace
-    }, ItemStatic, Expr
+        Mut, Mod, Brace
+    },
+    Expr, StaticMutability
 };
 use core::{
     fmt::{
@@ -26,7 +27,7 @@ use crate::{
         InsertUnique, TestCase
     },
     params::{
-        setup::*, teardown::*
+        setup::*, teardown::*, init::*
     },
     common::{
         attribute_name_to_string,
@@ -39,73 +40,79 @@ use crate::{
 enum SuiteMutator {
     // Mutators should be defined in the order they must apply
     Setup(ParamSetup),
-    Teardown(ParamTeardown)
+    Teardown(ParamTeardown),
+    Init(ParamInit)
 }
 
 impl Mutate for SuiteMutator {
-    type Item = ItemFn;
+    type Item = Item;
 
     fn mutate(&self, target: &mut Self::Item) -> Result<()> {
-        match self {
-            SuiteMutator::Setup(param) => param.mutate(&mut target.block),
-            SuiteMutator::Teardown(param) => param.mutate(&mut target.block)
+        // Done here as match takes ownership, even if
+        // matched patterns are empty, i.e.: Pattern(_)
+        if let Self::Init(param) = self {
+            return param.mutate(target);
+        }
+
+        match (self, target) {
+            (Self::Setup(param), Item::Fn(func)) => param.mutate(&mut func.block),
+            (Self::Teardown(param), Item::Fn(func)) => param.mutate(&mut func.block),
+            _ => Ok(())
         }
     }
 }
 
 impl ToTokens for SuiteMutator {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        match self {
-            SuiteMutator::Setup(param) => param.to_tokens(tokens),
-            SuiteMutator::Teardown(param) => param.to_tokens(tokens)
-        };
+        if let SuiteMutator::Init(param) = self {
+            param.to_tokens(tokens);
+        }
     }
 }
 
-impl SuiteMutator {
-    fn new_from(function: &mut ItemFn) -> Option<SuiteMutator> {
+impl TryFrom<&mut ItemFn> for SuiteMutator {
+    type Error = ();
+
+    fn try_from(function: &mut ItemFn) -> std::result::Result<Self, Self::Error> {
         for attribute in &function.attrs {
             match attribute_name_to_string(attribute).as_str() {
+                TestSuite::INIT_IDENT => {
+                    return Ok(SuiteMutator::Init(
+                        ParamInit(take(&mut function.block.stmts))
+                    ));
+                },
                 TestSuite::SETUP_IDENT => {
-                    return Some(
-                        SuiteMutator::Setup(ParamSetup(take(&mut function.block.stmts)))
-                    );
+                    return Ok(SuiteMutator::Setup(
+                        ParamSetup(take(&mut function.block.stmts))
+                    ));
                 },
                 TestSuite::TEARDOWN_IDENT => {
-                    return Some(
-                        SuiteMutator::Teardown(ParamTeardown(take(&mut function.block.stmts)))
-                    );
+                    return Ok(SuiteMutator::Teardown(
+                        ParamTeardown(take(&mut function.block.stmts))
+                    ));
                 },
                 _ => {}
             }
         }
 
-        None
+        Err(())
     }
 }
 
 #[derive(Clone)]
 pub struct TestSuite {
     name: Ident,
-    mutators: Option<Mutators<SuiteMutator>>,
-    contents: Option<Vec<Item>>
+    contents: Option<Vec<Item>>,
+    mutators: Option<Mutators<SuiteMutator>>
 }
 
 impl Mutate for TestSuite {
     type Item = Item;
 
     fn mutate(&self, target: &mut Self::Item) -> Result<()> {
-        let Option::Some(mutators) = &self.mutators else {
-            return Ok(());
-        };
-
-        let Item::Fn(function) = target else {
-            return Ok(());
-        };
-
-        if is_test_attribute(&function.attrs) {
+        if let Option::Some(mutators) = &self.mutators {
             for mutator in mutators {
-                mutator.mutate(function)?;
+                mutator.mutate(target)?;
             }
         }
 
@@ -119,51 +126,73 @@ impl Parse for TestSuite {
             return Err(error_spanned!("#[test_suite] can only be applied to modules", &input.span()));
         };
 
-        let Some(mut contents) = take(&mut target.content) else {
-            return Ok( Self { name: target.ident, mutators: None, contents: None } );
+        let mut out = TestSuite {
+            name: target.ident,
+            mutators: None,
+            contents: take(&mut target.content).map(|c| c.1)
         };
 
-        let mut mutators: Mutators<SuiteMutator> = Mutators::new();
+        let Some(contents) = &mut out.contents else {
+            return Ok(out);
+        };
+
+        //let mut mutators: Mutators<SuiteMutator> = Mutators::new();
         // TODO: Create 'safe remove' iterator type
         let mut removed_elements: usize = 0;
         // TODO: Detect #[setup]/#[teardown] on invalid Items, reporting such correctly
-        for i in 0..contents.1.len() {
+        for i in 0..contents.len() {
             let real_index = i - removed_elements;
-            match &mut contents.1[real_index] {
-                Item::Fn(item) => {
-                    if let Some(mutator) = SuiteMutator::new_from(item) {
-                        mutators.insert_unique(mutator)?;
-                        remove_contents(&mut contents.1, &mut removed_elements, real_index);
-                    }
-                },
-                Item::Static(ItemStatic { expr, .. }) if should_setup(expr) => {
-                    remove_contents(&mut contents.1,  &mut removed_elements, real_index);
-                },
-                _ => {
-                    continue;
-                }
+            
+            let Item::Fn(func) = &mut contents[real_index] else {
+                continue;
             };
 
+            if let Ok(mutator) = SuiteMutator::try_from(func) {
+                let mutators = out.mutators.get_or_insert(Mutators::new());
+                mutators.insert_unique(mutator)?;
+                remove_contents(contents, &mut removed_elements, real_index);
+            }
         }
 
-        Ok(Self {
-            name: target.ident,
-            mutators: Some(mutators),
-            contents: Some(contents.1)
-        })
+        Ok(out)
     }
 }
 
 impl ToTokens for TestSuite {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        render_mod_name(self, tokens);
+        self.render_mod_name(tokens);
 
         let braced: Brace = Brace::default();
         braced.surround(tokens, | suite_inner |{
+            if let Some(mutators) = &self.mutators {
+                mutators.iter().for_each(| mutator | mutator.to_tokens(suite_inner));
+            }
             if let Some(contents) = &self.contents {
                 contents.iter().for_each(| item | item.to_tokens(suite_inner));
             }
         });
+    }
+
+    fn into_token_stream(mut self) -> TokenStream {
+        let mut suite_out: TokenStream = TokenStream::new();
+        self.render_mod_name(&mut suite_out);
+
+        let braced: Brace = Brace::default();
+        braced.surround(&mut suite_out, | suite_inner |{
+            if let Some(mutators) = &self.mutators {
+                mutators.iter().for_each(| mutator | mutator.to_tokens(suite_inner));
+            }
+            if let Some(contents) = &mut take(&mut self.contents) {
+                contents.iter_mut().for_each(| item | {
+                    match &self.mutate(item) {
+                        Ok(_) => item.to_tokens(suite_inner),
+                        Err(e) => suite_inner.append_all(e.to_compile_error())
+                    };
+                });
+            }
+        });
+
+        suite_out
     }
 }
 
@@ -183,8 +212,14 @@ impl Debug for TestSuite {
 }
 
 impl TestSuite {
+    pub const INIT_IDENT: &'static str = "init";
     pub const SETUP_IDENT: &'static str = "setup";
     pub const TEARDOWN_IDENT: &'static str = "teardown";
+
+    fn render_mod_name(&self, tokens: &mut TokenStream) {
+        Mod::default().to_tokens(tokens);
+        self.name.to_tokens(tokens);
+    }
 }
 
 fn remove_contents(contents: &mut Vec<syn::Item>, removed_elements: &mut usize, index: usize) {
@@ -192,32 +227,9 @@ fn remove_contents(contents: &mut Vec<syn::Item>, removed_elements: &mut usize, 
     *removed_elements += 1;
 }
 
-fn should_setup(item: &Expr) -> bool {
-    let Expr::Path(expr_path) = item else {
-        return false;
-    };
-
-    expr_path.path.get_ident().is_some_and(| name | &name.to_string() == "setup")
-}
-
-fn render_mod_name(test_suite: &TestSuite, tokens: &mut TokenStream) {
-    Mod::default().to_tokens(tokens);
-    test_suite.name.to_tokens(tokens);
-}
-
-fn is_test_attribute(attributes: &[Attribute]) -> bool {
-    attributes.iter()
-        .map(attribute_name_to_string)
-        .any(| name | {
-            name.as_str() == TestCase::SITH_TEST_IDENT ||
-            name.as_str() == TestCase::RUSTC_TEST_IDENT ||
-            name.as_str() == TestCase::WASM_TEST_IDENT
-        })
-}
-
-pub fn render_test_suite(mut test_suite: TestSuite) -> TokenStream {
+/*pub fn render_test_suite(mut test_suite: TestSuite) -> TokenStream {
     let Option::Some(mut contents) = take(&mut test_suite.contents) else {
-        return test_suite.to_token_stream();
+        return test_suite.into_token_stream();
     };
 
     // DRY - however... ToTokens doesn't pass-in self as an owned or mutable reference,
@@ -228,6 +240,9 @@ pub fn render_test_suite(mut test_suite: TestSuite) -> TokenStream {
     
     let braced: Brace = Brace::default();
     braced.surround(&mut suite_out, | suite_inner |{
+        if let Some(mutators) = &test_suite.mutators {
+            mutators.iter().for_each(| mutator | mutator.to_tokens(suite_inner));
+        }
         for item in &mut contents {
             if let Err(e) = test_suite.mutate(item) {
                 suite_inner.append_all(e.to_compile_error());
@@ -238,7 +253,7 @@ pub fn render_test_suite(mut test_suite: TestSuite) -> TokenStream {
     });
 
     suite_out
-}
+}*/
 
 #[cfg(test)]
 mod tests {
@@ -508,63 +523,16 @@ mod tests {
         )
     }
 
-    mod render_mod_name {
-        use super::*;
-        
-        use syn::parse_quote;
+    #[test]
+    fn outputs_mod_with_test_suite_name() {
+        let mut tokens = TokenStream::new();
+        let suite = TestSuite {
+            name: parse_quote!(my_suite),
+            mutators: None,
+            contents: None
+        };
 
-        #[test]
-        fn outputs_mod_with_test_suite_name() {
-            let mut tokens = TokenStream::new();
-
-            render_mod_name(&TestSuite {
-                name: parse_quote!(my_suite),
-                mutators: None,
-                contents: None
-            }, &mut tokens);
-    
-            assert_eq_tokens!(tokens, quote!(mod my_suite));
-        }
-    }
-
-    mod is_test_attribute {
-        use super::*;
-        
-        use syn::AttrStyle;
-
-        #[test]
-        fn recognizes_test_case() {
-            assert!(is_test_attribute(
-                &[construct_attribute!(AttrStyle::Outer, test_case)]
-            ));
-        }
-
-        #[test]
-        fn recognizes_test() {
-            assert!(is_test_attribute(
-                &[construct_attribute!(AttrStyle::Outer, test)]
-            ));
-        }
-
-        #[test]
-        fn recognizes_wasm_bindgen_test() {
-            assert!(is_test_attribute(
-                &[construct_attribute!(AttrStyle::Outer, wasm_bindgen_test)]
-            ));
-        }
-
-        #[test]
-        fn does_not_recognize_other_attributes_named_test() {
-            assert!(!
-                is_test_attribute(
-                    &[
-                        construct_attribute!(AttrStyle::Outer, foo_test),
-                        construct_attribute!(AttrStyle::Outer, test_bar),
-                        construct_attribute!(AttrStyle::Outer, test_),
-                        construct_attribute!(AttrStyle::Outer, _test),
-                    ]
-                )
-            );
-        }
+        suite.render_mod_name(&mut tokens);
+        assert_eq_tokens!(tokens, quote!(mod my_suite));
     }
 }

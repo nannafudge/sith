@@ -21,7 +21,8 @@ impl Mutate for ParamSetup {
 }
 
 impl_unique!(ParamSetup);
-impl_param!(ParamSetup, iterable(0));
+impl_param!(debug(ParamSetup, iterable(0)));
+impl_param!(to_tokens(ParamSetup, iterable(0)));
 
 #[cfg(test)]
 mod tests {

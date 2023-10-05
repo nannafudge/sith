@@ -12,7 +12,7 @@
 //! 
 //! ### Example
 //! 
-//! ```
+//! ```rust
 //! use sith::test_case;
 //! 
 //! #[test_case]
@@ -34,19 +34,22 @@
 //! 
 //! ### Example
 //! 
-//! ```
+//! ```rust
+//! use sith::test_suite;
+//! 
 //! #[test_suite]
 //! mod suite {
 //!     use sith::test_case;
-//!     use std::io::Write;
-//!
+//! 
 //!     #[setup]
 //!     fn setup() {
+//!         use std::io::Write;
+//! 
 //!         let handler = std::panic::take_hook();
 //!         std::panic::set_hook(Box::new(move | info | {
 //!            let _ = std::io::stderr().write_fmt(format_args!("failed with seed: {}\n", SEED));
 //!             handler(info);
-//!         })); 
+//!         }));
 //!     }
 //! 
 //!     #[teardown]
@@ -69,6 +72,7 @@ mod common;
 mod core;
 
 use crate::core::*;
+use quote::ToTokens;
 
 macro_rules! parse_token_stream {
     ($target:expr => $type_:ty) => {
@@ -94,8 +98,8 @@ macro_rules! parse_token_stream {
 
 #[proc_macro_attribute]
 pub fn test_suite(_: TokenStream, target: TokenStream) -> TokenStream {
-    let test_suite: TestSuite = parse_token_stream!(target => TestSuite);
-    render_test_suite(test_suite).into()
+    let mut test_suite: TestSuite = parse_token_stream!(target => TestSuite);
+    test_suite.into_token_stream().into()
 }
 
 #[proc_macro_attribute]
@@ -105,4 +109,9 @@ pub fn test_case(attr_args: TokenStream, target: TokenStream) -> TokenStream {
     let test_case: TestCase = parse_token_stream!(attr_args => TestCase);
     let test_fn: ItemFn = parse_token_stream!(target => ItemFn, "#[test_case] can only be applied to functions");
     render_test_case(test_case, test_fn).into()
+}
+
+#[proc_macro]
+pub fn init(tokens: TokenStream) -> TokenStream {
+    TokenStream::new()
 }

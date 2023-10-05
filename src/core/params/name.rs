@@ -38,7 +38,8 @@ impl Mutate for ParamName {
 }
 
 impl_unique!(ParamName);
-impl_param!(ParamName, 0);
+impl_param!(debug(ParamName, 0));
+impl_param!(to_tokens(ParamName, 0));
 
 #[cfg(test)]
 mod tests {

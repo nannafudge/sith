@@ -15,15 +15,13 @@ mod test_suite;
 pub use test_case::{
     TestCase, render_test_case
 };
-pub use test_suite::{
-    TestSuite, render_test_suite
-};
+pub use test_suite::TestSuite;
 
 type Mutators<T> = BTreeSet<T>;
 
-impl<T: Ord + Spanned + ToTokens> InsertUnique<T> for Mutators<T> {
+impl<T: Ord + Spanned + ToTokens> InsertUnique<T> for BTreeSet<T> {
     fn insert_unique(&mut self, item: T) -> Result<()> {
-        let err = Err(error_spanned!("duplicate parameter", &item));
+        let err = Err(error_spanned!("duplicate item", &item));
         if !self.insert(item) {
             return err;
         }
@@ -70,7 +68,7 @@ pub(crate) mod tests {
         assert!(mutators.insert_unique(0).is_ok());
         assert_eq_parsed!(
             mutators.insert_unique(0),
-            Err(error_spanned!("duplicate parameter"))
+            Err(error_spanned!("duplicate item"))
         );
     }
 

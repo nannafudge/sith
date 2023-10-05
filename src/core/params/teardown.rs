@@ -19,7 +19,8 @@ impl Mutate for ParamTeardown {
 }
 
 impl_unique!(ParamTeardown);
-impl_param!(ParamTeardown, iterable(0));
+impl_param!(debug(ParamTeardown, iterable(0)));
+impl_param!(to_tokens(ParamTeardown, iterable(0)));
 
 #[cfg(test)]
 mod tests {
